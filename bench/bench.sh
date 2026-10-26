@@ -15,7 +15,8 @@ for pair in "$@"; do
   sed -e "s/^websocket_ip: .*/websocket_ip: 127.0.0.1/" -e "s/^websocket_port: .*/websocket_port: 5002/" -e "s/^osc_server_port: .*/osc_server_port: 9011/" \
       -e "s/^settingsfilename: .*/settingsfilename: $N.yaml/" "$src" > "$O.yaml"
   if tasklist //fi "imagename eq audioWhisper.exe" | grep -qi audioWhisper; then echo "an engine is running; stopping before $N"; break; fi
-  base=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits)
+  base=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits 2>/dev/null)
+  case "$base" in ''|*[!0-9]*) echo "nvidia-smi failed (try it in your own terminal); stopping before $N"; break;; esac  # else the test below errors and the run goes on as if idle
   if [ "$base" -gt 1500 ]; then echo "GPU busy (${base} MiB in use, a game?); stopping before $N"; break; fi
   echo "=== $N (GPU idle baseline ${base} MiB) $(date +%T)"
   cp "$B/zz_bench_harness.py" Plugins/zz_bench_harness.py
