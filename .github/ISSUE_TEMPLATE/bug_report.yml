@@ -1,0 +1,42 @@
+name: Problem report
+description: Something doesn't work, or captions are wrong or missing.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: gpu
+    attributes:
+      label: Graphics card
+      description: Shown on the app's App page, under GPU use. For example "RTX 3060, 12 GB".
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode
+      options: [Auto, Accurate, Balanced, Fast, Lite, CPU, "Not started yet (install problem)"]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Shown on the app's App page, under About.
+  - type: textarea
+    id: setup
+    attributes:
+      label: Setup
+      description: Filled in by the app's Send feedback (Windows, GPU use, languages, Listen to, switches).
+      render: text
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: In the app, click Show log, then Copy, and paste it here.
+      render: text

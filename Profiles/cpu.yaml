@@ -1,0 +1,229 @@
+additional_audio_routes: []
+ai_device: cpu
+ai_device_index: 0
+audio_api: WASAPI
+audio_input_device: ''
+audio_output_device: Default
+beam_search_patience: 1
+beam_size: 1
+condition_on_previous_text: false
+current_language: ja
+denoise_audio: ''
+denoise_audio_before_trigger: true
+denoise_audio_post_filter: false
+denoise_strength: 0.8
+device_index: 35
+device_out_index: null
+energy: 27
+faster_without_timestamps: false
+initial_prompt: ''
+keep_silence_length: 0.2
+language_detection_on_each_segment: false
+last_auto_txt_translate_lang: ''
+length_penalty: 1
+logprob_threshold: '-1.0'
+main_audio_plugins: null
+max_sentence_repetition: 1
+max_silence_length: 30
+max_speakers: 3
+mic_passthrough_routing: false
+min_speaker_length: 0.5
+min_speakers: 1
+model: small
+no_repeat_ngram_size: 4
+no_speech_threshold: '0.8'
+normalize_enabled: true
+normalize_gain_factor: 2
+normalize_lower_threshold: -24
+normalize_upper_threshold: -16
+ocr_ai_device: cpu
+ocr_ai_device_index: 0
+ocr_lang: en
+ocr_precision: float32
+ocr_txt_src_lang: ''
+ocr_txt_trg_lang: ''
+ocr_type: easyocr
+ocr_window_name: ''
+only_no_speech_threshold_for_segments: true
+osc_address: /chatbox/input
+osc_auto_processing_enabled: false
+osc_chat_limit: 144
+osc_chat_prefix: ''
+osc_chat_prioritize_latest: false
+osc_convert_ascii: false
+osc_delay_timeout: 10
+osc_delay_until_audio_playback: false
+osc_delay_until_audio_playback_tag: tts
+osc_initial_time_limit: 15
+osc_ip: '0'
+osc_max_scroll_size: 30
+osc_min_time_between_messages: 1.5
+osc_port: 9000
+osc_scroll_size: 3
+osc_scroll_time_limit: 1.5
+osc_send_type: chunks
+osc_server_ip: '0'
+osc_server_port: 9001
+osc_sync_afk: false
+osc_sync_mute: false
+osc_time_limit: 15
+osc_type_transfer: translation_result
+osc_type_transfer_split: " \U0001F310 "
+osc_typing_indicator: true
+pause: 0.30000000000000004
+phrase_time_limit: 30
+plugin_settings:
+  SubtitleDisplayPlugin:
+    bottom: 0
+    extra_intermediate_line: true
+    plugin_translation: true
+    plugin_translation_fast_device:
+      type: select
+      value: cpu
+      values:
+      - cuda
+      - cpu
+    plugin_translation_fast_model:
+      type: select
+      value: nllb
+      values:
+      - milmmt
+      - milmmt_int8
+      - nllb
+    plugin_translation_upgrade: false
+    font_background_color: black
+    font_color: white
+    font_size: 20
+    opacity:
+      max: 1
+      min: -0.01
+      step: 0.01
+      type: slider
+      value: -0.01
+    reverse_order_transcriptions: false
+    settings_groups:
+      General:
+      - transcription_keep_last
+      - transcription_limit
+      - transcription_display_time
+      - transcription_display_source_transcript
+      - reverse_order_transcriptions
+      - extra_intermediate_line
+      - streaming_max_characters
+      Position:
+      - top
+      - bottom
+      - window_width
+      - window_height
+      - x_position
+      - y_position
+      Styling:
+      - square_size
+      - font_size
+      - font_color
+      - transparency_color
+      - font_background_color
+      - opacity
+    square_size: 10
+    streaming_max_characters:
+      max: 2000
+      min: 100
+      step: 50
+      type: slider
+      value: 500
+    top: 30
+    transcription_display_source_transcript: false
+    transcription_display_time:
+      max: 90
+      min: 0
+      step: 1
+      type: slider
+      value: 8
+    transcription_keep_last: false
+    transcription_limit:
+      max: 10
+      min: 1
+      step: 1
+      type: slider
+      value: 6
+    transparency_color: '#FF00FF'
+    window_height: 100
+    window_width: 800
+    x_position: 400
+    y_position: 780
+plugins:
+  SubtitleDisplayPlugin: true
+process_id: 49148
+prompt_reset_on_temperature: 0.5
+push_to_talk_key: ''
+realtime: true
+realtime_frame_multiply: 8
+realtime_frequency_time: 1.0
+realtime_temperature_fallback: false
+realtime_whisper_beam_size: 1
+realtime_whisper_model: ''
+realtime_whisper_precision: int8
+repetition_penalty: 1.1
+run_backend: true
+run_backend_reconnect: false
+settingsfilename: cpu.yaml
+silence_cutting_enabled: true
+silence_offset: -40
+speaker_change_split: true
+speaker_diarization: false
+src_lang: jpn_Jpan
+stt_llm_prompt: ''
+stt_type: faster_whisper
+target_language: ''
+temperature_fallback: false
+thread_per_transcription: true
+transcription_auto_save_continuous_text: false
+transcription_auto_save_file: ''
+transcription_save_audio_dir: ''
+trg_lang: eng_Latn
+tts_ai_device: cpu
+tts_ai_device_index: 0
+tts_model: []
+tts_normalize: true
+tts_precision: float32
+tts_prosody_pitch: ''
+tts_prosody_rate: ''
+tts_queue_enabled: false
+tts_secondary_playback_device: 0
+tts_streamed_chunk_size: 400
+tts_streamed_min_play_time: 0.3
+tts_streamed_playback: false
+tts_type: ''
+tts_use_secondary_playback: false
+tts_voice: ''
+tts_volume: 1
+txt_romaji: false
+txt_second_translation_enabled: false
+txt_second_translation_languages: eng_Latn
+txt_second_translation_wrap: ' | '
+txt_translate: false
+txt_translate_realtime: true
+txt_translate_realtime_sync: false
+txt_translator: ''
+txt_translator_device: cpu
+txt_translator_device_index: 0
+txt_translator_precision: int8_float16
+txt_translator_size: small
+vad_confidence_threshold: 0.25
+vad_enabled: true
+vad_frames_per_buffer: 512
+vad_on_full_clip: false
+vad_smart_turn_enabled: false
+vad_smart_turn_min_length: 2
+vad_smart_turn_pause_length: 0
+vad_smart_turn_probability_threshold: 0.5
+vad_thread_num: 1
+websocket_ip: '0'
+websocket_port: 5010
+whisper_apply_voice_markers: false
+whisper_cpu_threads: 0
+whisper_num_workers: 2
+whisper_precision: int8
+whisper_task: transcribe
+word_timestamps: false
+audio_input_process: brave.exe

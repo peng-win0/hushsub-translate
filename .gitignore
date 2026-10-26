@@ -1,0 +1,30 @@
+# Whitelist: only the app, profiles, plugin and tools are tracked. The engine (audioWhisper/), models (.cache/),
+# toolchain and test audio stay local.
+/*
+!/.gitignore
+!/README.md
+!/LICENSE
+!/CaptionsApp.ps1
+!/app.ico
+!/captions.ps1
+!/install.ps1
+!/update.ps1
+!/version.txt
+!/.gitattributes
+!/ruff.toml
+!/Hushsub Translate.bat
+!/launcher.cs
+!/fake-lines.txt
+!/glossary.txt
+!/Profiles/
+!/Plugins/
+!/fonts/
+!/bench/
+!/docs/
+!/.github/
+/Plugins/zz_*
+__pycache__/
+/bench/clips/
+/bench/out/
+/bench/test.raw*
+/bench/mt/out/
