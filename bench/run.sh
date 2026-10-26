@@ -7,7 +7,7 @@ NAME=$1
 PROF=$2
 WARM=${3:-60}
 O="$B/out/$NAME"
-rm -f probe/display.jsonl .captions-paused  # a pause left by the app would silence the run
+rm -f probe/display.jsonl .captions-paused "$O.jsonl"  # a pause left by the app would silence the run; a failed run mustn't score the last one
 audioWhisper/audioWhisper.exe --config "$PROF" --remote_host > "$O.engine.log" 2>&1 &
 EPID=$!
 node "$B/waitws.mjs" 5002 400 || { kill $EPID; exit 1; }
