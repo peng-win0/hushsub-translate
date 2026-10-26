@@ -1,0 +1,8 @@
+# Names and terms the translator or speech recognition gets wrong: "term = what to translate instead", one per line.
+# Applied to every spoken language before translation, in any case; English and other spaced languages match whole
+# words only. Also editable in the app under Your words; used from the next line.
+# Only add words that can't mean anything else: a word with an everyday meaning (そら = sky) would break normal sentences.
+# Examples (remove the # to use):
+# 山田商事 = Yamada Trading
+# スパチャ = スーパーチャット
+# cooper netties = Kubernetes

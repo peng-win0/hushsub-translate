@@ -1,0 +1,12 @@
+# Windows line endings in the "Download ZIP" (cmd needs them in .bat files); the ZIP leaves out the dev-only files.
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+bench/ export-ignore
+docs/ export-ignore
+.github/ export-ignore
+.gitignore export-ignore
+.gitattributes export-ignore
+ruff.toml export-ignore
+*.ico binary
+*.png binary
+*.ttf binary

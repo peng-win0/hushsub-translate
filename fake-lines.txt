@@ -1,0 +1,51 @@
+# Lines Whisper makes up during silence, music or applause (sign-offs from the videos it learned from).
+# A caption line that is exactly one of these is dropped. Case, spaces and punctuation don't matter.
+# Add your own, one per line, then restart captions. Lines starting with # are ignored.
+That's the end of this video. Don't forget to subscribe and hit the like button.
+That's the end of this video.
+That's the end of the video.
+Don't forget to subscribe and hit the like button.
+Don't forget to like and subscribe.
+Don't forget to subscribe.
+Please like and subscribe.
+See you in the next video.
+Alright. That's all for now. See you in the next video.
+Alright. That's all right for now. See you in the next video.
+That's all right for now. See you in the next video.
+That's all for now. See you in the next video.
+That's all right for now.
+That's all for now.
+See you next video.
+See you in the next one.
+Well, that's all for today.
+That's all for today.
+That's all for this video.
+That's it for this video.
+Thank you.
+Thank you very much.
+Thank you so much.
+Thank you for watching this video.
+Thanks for watching this video.
+Thanks.
+you
+Gracias.
+Merci.
+Obrigado.
+¡Suscríbete al canal!
+Продолжение следует...
+ご視聴ありがとうございました
+ありがとうございました
+おやすみなさい
+次の動画でお会いしましょう
+あなたは私を愛しています。
+Thanks for watching!
+Gracias por ver el video.
+Merci d'avoir regardé cette vidéo !
+Obrigado por assistir!
+Vielen Dank fürs Zuschauen!
+Terima kasih telah menonton!
+시청해주셔서 감사합니다.
+구독과 좋아요 부탁드립니다.
+谢谢观看
+謝謝觀看
+感谢观看

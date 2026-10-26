@@ -1,0 +1,8 @@
+# Lint for the plugin and the bench scripts (CI runs it). Only the checks that find bugs: pyflakes (F) and syntax
+# (E9). Not the style rules (the tests are compact on purpose), not bugbear: its B007 "unused loop variable" is wrong
+# in bench/live_accuracy.py, whose stub reads that variable as a global.
+target-version = "py311"  # the engine's Python
+line-length = 120
+
+[lint]
+select = ["E9", "F"]

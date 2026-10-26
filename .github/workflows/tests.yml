@@ -1,0 +1,42 @@
+# Runs the offline tests on every push and pull request. None of them needs the engine, a GPU or the network.
+name: Tests
+on:
+  push:
+    branches: [main]  # not again for a release's tag: same commit
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: "3.11"  # the engine's own Python (audioWhisper\_internal\python311.dll) runs the plugin
+      - name: Scripts parse in Windows PowerShell 5.1 and are plain ASCII
+        shell: powershell
+        run: |
+          $bad = 0
+          foreach ($f in Get-ChildItem -Recurse -Filter *.ps1) {
+              $e = $null; [void][Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$null, [ref]$e)
+              if ($e) { "$($f.Name): $($e | ForEach-Object { $_.Message })"; $bad++ }
+              if ([IO.File]::ReadAllBytes($f.FullName) | Where-Object { $_ -gt 127 }) { "$($f.Name): not ASCII"; $bad++ }
+          }
+          exit $bad
+      - name: Lint (ruff.toml)
+        run: |
+          python -m pip install --disable-pip-version-check ruff==0.17.2
+          ruff check Plugins bench
+      - run: python bench/test_captions.py
+      - run: python bench/test_translator.py
+      - run: python bench/test_overlay.py
+      - run: powershell -NoProfile -ExecutionPolicy Bypass -File bench/test_log_privacy.ps1
+      - run: powershell -NoProfile -ExecutionPolicy Bypass -File bench/test_update.ps1
+      - run: powershell -NoProfile -ExecutionPolicy Bypass -File bench/test_compat.ps1
+      - run: powershell -NoProfile -ExecutionPolicy Bypass -File bench/test_exe.ps1
+      - run: powershell -NoProfile -ExecutionPolicy Bypass -File bench/test_app.ps1
+      - run: powershell -NoProfile -ExecutionPolicy Bypass -File bench/test_zip.ps1
