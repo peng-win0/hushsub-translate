@@ -66,11 +66,24 @@ _LANGUAGE_NAMES = {"jpn_Jpan": "Japanese", "eng_Latn": "English", "kor_Hang": "K
                    "zho_Hant": "Chinese (Traditional)", "ind_Latn": "Indonesian", "spa_Latn": "Spanish",
                    "por_Latn": "Portuguese", "fra_Latn": "French", "deu_Latn": "German", "rus_Cyrl": "Russian",
                    "vie_Latn": "Vietnamese", "tur_Latn": "Turkish", "ita_Latn": "Italian", "pol_Latn": "Polish",
-                   "nld_Latn": "Dutch"}  # the app's languages, MiLMMT's names
+                   "nld_Latn": "Dutch", "arb_Arab": "Arabic", "azj_Latn": "Azerbaijani", "bul_Cyrl": "Bulgarian",
+                   "ben_Beng": "Bengali", "cat_Latn": "Catalan", "ces_Latn": "Czech", "dan_Latn": "Danish",
+                   "ell_Grek": "Greek", "pes_Arab": "Persian", "fin_Latn": "Finnish", "heb_Hebr": "Hebrew",
+                   "hin_Deva": "Hindi", "hrv_Latn": "Croatian", "hun_Latn": "Hungarian", "kaz_Cyrl": "Kazakh",
+                   "khm_Khmr": "Khmer", "lao_Laoo": "Lao", "zsm_Latn": "Malay", "mya_Mymr": "Burmese",
+                   "nob_Latn": "Norwegian", "ron_Latn": "Romanian", "slk_Latn": "Slovak", "slv_Latn": "Slovenian",
+                   "swe_Latn": "Swedish", "tam_Taml": "Tamil", "tha_Thai": "Thai", "tgl_Latn": "Tagalog",
+                   "urd_Arab": "Urdu", "uzn_Latn": "Uzbek", "yue_Hant": "Cantonese"}  # every MiLMMT-46 language, its names
 # Spoken "Auto" (profile current_language: auto): Whisper's detected language -> the translator's code
 WHISPER_TO_NLLB = {"ja": "jpn_Jpan", "en": "eng_Latn", "ko": "kor_Hang", "zh": "zho_Hans", "id": "ind_Latn",
                    "es": "spa_Latn", "pt": "por_Latn", "fr": "fra_Latn", "de": "deu_Latn", "ru": "rus_Cyrl",
-                   "vi": "vie_Latn", "tr": "tur_Latn", "it": "ita_Latn", "pl": "pol_Latn", "nl": "nld_Latn"}
+                   "vi": "vie_Latn", "tr": "tur_Latn", "it": "ita_Latn", "pl": "pol_Latn", "nl": "nld_Latn",
+                   "ar": "arb_Arab", "az": "azj_Latn", "bg": "bul_Cyrl", "bn": "ben_Beng", "ca": "cat_Latn",
+                   "cs": "ces_Latn", "da": "dan_Latn", "el": "ell_Grek", "fa": "pes_Arab", "fi": "fin_Latn",
+                   "he": "heb_Hebr", "hi": "hin_Deva", "hr": "hrv_Latn", "hu": "hun_Latn", "kk": "kaz_Cyrl",
+                   "km": "khm_Khmr", "lo": "lao_Laoo", "ms": "zsm_Latn", "my": "mya_Mymr", "no": "nob_Latn",
+                   "ro": "ron_Latn", "sk": "slk_Latn", "sl": "slv_Latn", "sv": "swe_Latn", "ta": "tam_Taml",
+                   "th": "tha_Thai", "tl": "tgl_Latn", "ur": "urd_Arab", "uz": "uzn_Latn", "yue": "yue_Hant"}
 # Caption style picked in the app (CaptionsApp.ps1): size %, color, background %. Re-read when the file changes.
 APP_SETTINGS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "app-settings.json")
 # YouTube's caption options, same names and values as in the app

@@ -2,7 +2,7 @@
 # Silent benchmark of the real caption profiles (test ports 5002/9011, otherwise unchanged).
 # usage (any folder): sh bench/bench.sh [NAME:profile ...]   default: FINAL_LIVE:accurate FINAL_LIGHT:fast
 # profile = a name in app/Profiles/ or a path to a .yaml (a copy of a profile with one setting changed)
-# Results go to bench/out/. Needs an idle GPU and the user's captions off.
+# RAW, REFS, ENDS: other test audio (see run.sh, fleurs.py). Results go to bench/out/. Needs an idle GPU and the user's captions off.
 B="$(cd "$(dirname "$0")" && pwd)"
 mkdir -p "$B/out"
 cd "$B/.." || exit 1
@@ -26,8 +26,8 @@ for pair in "$@"; do
   kill $VPID 2>/dev/null
   rm -f Plugins/zz_bench_harness.py bench.flag
   grep -a "translator (\|translator ready\|unavailable\|Traceback" "$O.engine.log" | head -8
-  node "$B/score.mjs" "$O.jsonl" "$B/clips/refs.json" "$B/test.raw.ends.json" | head -1
-  node "$B/overlay.mjs" "$O.jsonl" "$O.display.jsonl" "$B/test.raw.ends.json" --lines
+  node "$B/score.mjs" "$O.jsonl" "${REFS:-$B/clips/refs.json}" "${ENDS:-$B/test.raw.ends.json}" | head -1
+  node "$B/overlay.mjs" "$O.jsonl" "$O.display.jsonl" "${ENDS:-$B/test.raw.ends.json}" --lines
   echo "peak GPU memory: $(sort -t, -k2 -n "$O.vram.csv" | tail -1 | cut -d, -f2) (baseline ${base} MiB)"
   sleep 10
 done
