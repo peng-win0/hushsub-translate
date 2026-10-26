@@ -1,11 +1,12 @@
-# Downloads the Whispering Tiger engine (v1.3.20.1, ~5 GB) and unpacks it into this folder. Run by CaptionsApp.ps1
+# Downloads the Whispering Tiger engine (v1.3.20.1, ~5 GB) and unpacks it into the app's folder. Run by CaptionsApp.ps1
 # on first start; safe to run again (resumes the download, never overwrites this app's own files).
 # Models download on each mode's first Start (captions.ps1).
 # URLs and SHA256: the engine's .current_platform.yaml (+ s3.libs.space, where the engine fetches its models); the zip unpacks flat (audioWhisper\, toolchain\, ...) like
 # the official UI does it (whispering-ui UpdateUtility/UpdateCheck.go).
 $ErrorActionPreference = "Stop"
-trap { Set-Content -LiteralPath "$PSScriptRoot\.install-error.txt" -Value "$_"; exit 1 }  # shown by the app
-Set-Location -LiteralPath $PSScriptRoot
+$top = Split-Path $PSScriptRoot  # the app's folder: this script is in its app\
+trap { Set-Content -LiteralPath "$top\.install-error.txt" -Value "$_"; exit 1 }  # shown by the app
+Set-Location -LiteralPath $top
 if (Test-Path -LiteralPath "audioWhisper\audioWhisper.exe") { return }
 Remove-Item -LiteralPath ".install-step" -ErrorAction SilentlyContinue  # left by a run that a restart cut off
 $zip = "engine-download.zip"
@@ -46,5 +47,5 @@ $exe = Get-ChildItem -LiteralPath $tmp.FullName -Recurse -Filter "audioWhisper.e
 if (-not $exe) { throw "The download has no audioWhisper.exe; delete $zip and press Install again." }
 # Keep this app's own files (Plugins\, Profiles\, ...) where names clash.
 Get-ChildItem -LiteralPath $exe.Directory.Parent.FullName -Force | Where-Object { -not (Test-Path -LiteralPath $_.Name) } |
-    Move-Item -Destination $PSScriptRoot
+    Move-Item -Destination $top
 Remove-Item -LiteralPath ".install", $zip, ".install-step" -Recurse -Force

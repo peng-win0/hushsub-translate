@@ -9,12 +9,13 @@
 # -Zip <file> -Version <x.y.z> installs a local release zip instead (bench/test_update.ps1).
 param([switch]$Apply, [string]$Zip, [string]$Version)
 $ErrorActionPreference = "Stop"
+$top = Split-Path $PSScriptRoot  # the app's folder: this script is in its app\
 trap {  # shown by the app
-    Set-Content -LiteralPath "$PSScriptRoot\.update-error.txt" -Value "$_"
-    Remove-Item -LiteralPath "$PSScriptRoot\.update", "$PSScriptRoot\.update.zip" -Recurse -Force -ErrorAction SilentlyContinue
+    Set-Content -LiteralPath "$top\.update-error.txt" -Value "$_"
+    Remove-Item -LiteralPath "$top\.update", "$top\.update.zip" -Recurse -Force -ErrorAction SilentlyContinue
     exit 1
 }
-Set-Location -LiteralPath $PSScriptRoot
+Set-Location -LiteralPath $top
 Remove-Item -LiteralPath ".update-error.txt" -ErrorAction SilentlyContinue
 $repo = "peng-win0/hushsub-translate"
 $curl, $tar = "$env:SystemRoot\System32\curl.exe", "$env:SystemRoot\System32\tar.exe"  # Windows' own: Git's tar can't unzip
@@ -55,7 +56,7 @@ foreach ($ps1 in Get-ChildItem -LiteralPath $root -Recurse -Filter "*.ps1") {  #
     if ($errors) { throw "The download has a broken script ($($ps1.Name))." }
 }
 
-$merge = "glossary.txt", "fake-lines.txt"  # the user may have added lines
+$merge = "app\glossary.txt", "app\fake-lines.txt"  # the user may have added lines
 $files = @(Get-ChildItem -LiteralPath $root -Recurse -File | ForEach-Object { $_.FullName.Substring($root.Length + 1) } | Where-Object { $_ -ne "version.txt" }) + "version.txt"
 if (Test-Path -LiteralPath ".update-backup") { Remove-Item -LiteralPath ".update-backup" -Recurse -Force }
 $done = @()

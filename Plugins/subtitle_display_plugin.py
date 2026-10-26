@@ -335,8 +335,8 @@ def load_fake_lines(*paths):
     return keys
 
 
-FAKE_LINES = load_fake_lines(*(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", name)
-                               for name in ("fake-lines.txt", "ignorelist.txt")))
+FAKE_LINES = load_fake_lines(*(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", *name)
+                               for name in (("app", "fake-lines.txt"), ("ignorelist.txt",))))
 
 
 # Subtitle credits Whisper learned from videos and prints during silence, anywhere in a line: "Subtitles by the
@@ -460,7 +460,7 @@ class PluginTranslator:
         self.times = deque(maxlen=12)  # seconds per translated line (fast pass), for STATS_FILE
         # names and jargon in any spoken language: Kronii not "cronyism", スパチャ = Super Chat not "spa treat" (bench/mt, 2026-10-07)
         # (the app's Your words edits it: re-read on the next line after a change, no restart)
-        self.glossary_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "glossary.txt")
+        self.glossary_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "app", "glossary.txt")
         self.glossary_mtime = None
         self.glossary = None
         threading.Thread(target=self._fast_loop, daemon=True).start()

@@ -9,10 +9,11 @@
 # It never kills the engine: force-killing an engine that holds CUDA models can leave a stuck process
 # that keeps its GPU memory until reboot.
 param([string]$ProfilePath, [string]$App, [string]$Title)
-Set-Location -LiteralPath $PSScriptRoot
+$top = Split-Path $PSScriptRoot  # the app's folder, where the engine is: this script is in its app\
+Set-Location -LiteralPath $top
 # the engine decodes audio with ffmpeg, which its zip brings in toolchain\ (Whispering Tiger's own app puts it on PATH;
 # without it every line fails with "[WinError 2] The system cannot find the file specified")
-$env:PATH = "$PSScriptRoot\toolchain\ffmpeg\bin;$env:PATH"
+$env:PATH = "$top\toolchain\ffmpeg\bin;$env:PATH"
 $Host.UI.RawUI.WindowTitle = $Title
 # wide enough that the engine's lines don't wrap: the Log panel wraps them to its own width
 try { $Host.UI.RawUI.BufferSize = New-Object Management.Automation.Host.Size 500, $Host.UI.RawUI.BufferSize.Height } catch {}
@@ -105,7 +106,7 @@ function Save-Log {
         Set-Content -LiteralPath ".captions-ready" -Value ""  # the app: "On" (until then "Starting": the engine loads for ~1 min)
     }
     $t = Hide-Said ((@($t -split "`r`n") -notmatch $noise) -join "`r`n")
-    try { [IO.File]::WriteAllText("$PSScriptRoot\.captions-log", $t) } catch {}  # UTF-8; the app may be reading it: next second
+    try { [IO.File]::WriteAllText("$top\.captions-log", $t) } catch {}  # UTF-8; the app may be reading it: next second
 }
 $h = [W.Con]::GetConsoleWindow()
 [void][W.Con]::ShowWindow($h, 0)
@@ -194,7 +195,7 @@ if (-not (Test-Path -LiteralPath ".cache\lid\lid218e.bin")) {
 $old = "ignorelist.custom.txt"
 if (Test-Path -LiteralPath $old) {
     $key = { param($l) ($l.ToLowerInvariant() -replace '[\W_]+', '') }
-    $have = @{}; foreach ($l in @(Get-Content -LiteralPath "fake-lines.txt" -Encoding UTF8 -ErrorAction SilentlyContinue)) { $have[(& $key $l)] = 1 }
+    $have = @{}; foreach ($l in @(Get-Content -LiteralPath "app\fake-lines.txt" -Encoding UTF8 -ErrorAction SilentlyContinue)) { $have[(& $key $l)] = 1 }
     $new = @(Get-Content -LiteralPath $old -Encoding UTF8 | Where-Object { $_.Trim() -and -not $_.TrimStart().StartsWith("#") -and -not $have.ContainsKey((& $key $_)) })
     if ($new) { [IO.File]::AppendAllText("$PSScriptRoot\fake-lines.txt", "`n" + ($new -join "`n") + "`n") }  # UTF-8 without BOM
     if ((Get-Item -LiteralPath $old -Force).Length) { Clear-Content -LiteralPath $old -Force }
