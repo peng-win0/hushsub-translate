@@ -12,6 +12,7 @@ foreach ($installed in $false, $true) {
     Copy-Item -LiteralPath ("CaptionsApp.ps1", "icon.ico", "version.txt", "launcher.cs", "glossary.txt", "fake-lines.txt", "README.md",
                             "LICENSE", "Profiles", "Plugins", "fonts" | ForEach-Object { "$app\$_" }) -Destination $root -Recurse
     Copy-Item -LiteralPath "$app\icon.ico" "$root\app.ico"  # left by 1.5.1 or older
+    $null = New-Item -ItemType Directory "$root\.update-backup"; Set-Content -LiteralPath "$root\.update-done" -Value "9.9.9"  # an older updater just ran
     Set-Content -LiteralPath "$root\app-settings.json" -Value '{"autoUpdate": false}'  # no update check from the copy
     $s = [IO.File]::ReadAllText("$app\CaptionsApp.ps1")
     $patches = @(
@@ -43,6 +44,7 @@ Set-Content "$PSScriptRoot\ok.txt" "ok"
     if (Test-Path -LiteralPath "$root\fail.txt") { Fail "$what, startup: $(Get-Content -LiteralPath "$root\fail.txt" -Raw)" }
     if (Test-Path -LiteralPath "$root\.app-error.txt") { Fail "$what, handler: $(Get-Content -LiteralPath "$root\.app-error.txt" -Raw)" }
     if (-not (Test-Path -LiteralPath "$root\ok.txt")) { Fail "$what, the window didn't build" }
+    if (Test-Path -LiteralPath "$root\.update-backup") { Fail "$what, the backup of a finished update stayed" }
     Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
 }
 "app ok"

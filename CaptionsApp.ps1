@@ -115,6 +115,7 @@ $script:updateApply = $false
 $script:applied = $null   # the version auto-update already tried (once per version and session)
 $updated = "$(Get-Content -LiteralPath '.update-done' -ErrorAction SilentlyContinue)".Trim()  # left by the update that reopened us
 Remove-Item -LiteralPath ".update-done" -ErrorAction SilentlyContinue
+if ($updated) { Remove-Item -LiteralPath ".update-backup" -Recurse -Force -ErrorAction SilentlyContinue }  # updaters before 1.5.2 left it
 $script:conhost = $null   # the console window process we started
 $script:running = if ($saved) { $saved.running } else { $null }  # mode of the captions now running
 $script:restart = $false  # start again (new budget / step down) once the running engine has exited
