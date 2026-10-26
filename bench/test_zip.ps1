@@ -1,5 +1,5 @@
-# Offline check of opening the app inside the downloaded ZIP (Explorer runs it from a temp copy): Yes installs that
-# copy in %LOCALAPPDATA%\Programs and opens it there with Install started, the next time opens the installed one without asking, and an
+# Offline check of opening the app inside the downloaded ZIP (Explorer runs it from a temp copy): it installs that
+# copy in %LOCALAPPDATA%\Programs without asking and opens it there with Install started, the next time opens the installed one, and an
 # incomplete copy only says to extract the ZIP. Runs CaptionsApp.ps1's own block with a fake LOCALAPPDATA, dialog and
 # Start-Process: never installs or opens anything for real.
 # usage: powershell -File bench/test_zip.ps1
@@ -25,10 +25,10 @@ $target = "$t\local\Programs\Hushsub Translate"
 Set-Location -LiteralPath $src
 
 Open-Zip
-if ([Dialog]::Asked.Count -ne 1) { Fail "asked $([Dialog]::Asked.Count) times" }
+if ([Dialog]::Asked.Count) { Fail "asked: $([Dialog]::Asked)" }
 if (@(Test-Path -LiteralPath "$target\CaptionsApp.ps1", "$target\Profiles\balanced.yaml", "$target\Plugins\subtitle_display_plugin.py") -contains $false) { Fail "not copied" }
 if (-not "$script:launched".Contains("$target\CaptionsApp.ps1")) { Fail "opened: $script:launched" }
-if (-not (Test-Path -LiteralPath "$target\.install-now")) { Fail "Install not started with the same Yes" }
+if (-not (Test-Path -LiteralPath "$target\.install-now")) { Fail "Install not started with the same double-click" }
 "install ok"
 
 [Dialog]::Asked = @(); $script:launched = $null

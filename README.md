@@ -32,12 +32,12 @@ or more) gives the best captions. Without one, captions run on the processor: sl
 graphics, macOS, Linux and phones are planned.
 
 1. Click **Download** above and open the ZIP.
-2. Double-click **`Hushsub Translate.bat`** in it and click **Yes**. That's all: the app installs itself in
+2. Double-click **`Hushsub Translate.bat`** in it. That's all: the app installs itself in
    `%LOCALAPPDATA%\Programs\Hushsub Translate` (no administrator), adds itself to the Start menu, downloads the
    engine and models for your PC, and starts captions. The window shows the progress; a cut download resumes.
 
-If Windows warns about the file, click **Run**, or **More info → Run anyway**. To install somewhere else, click **No**,
-then **Extract all** and open `Hushsub Translate.bat` in the extracted folder.
+If Windows warns about the file, click **Run**, or **More info → Run anyway**. To install somewhere else, right-click
+the ZIP, **Extract all**, and open `Hushsub Translate.bat` in the extracted folder.
 
 ## Use
 
