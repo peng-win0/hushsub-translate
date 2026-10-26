@@ -17,18 +17,17 @@ Add-Type -Name Win -Namespace W -MemberDefinition @'
 '@
 Set-Location -LiteralPath $PSScriptRoot
 if ($PSScriptRoot -like "$([IO.Path]::GetTempPath())*") {  # opened inside the ZIP: Explorer runs it from a temp copy
-    # install that copy where apps go for one user (no administrator), or open the one already there (it updates itself)
+    # install that copy where apps go for one user (no administrator), or open the one already there (it updates itself).
+    # No question: the double-click was the choice, and Install still warns when the disk is short of the ~20 GB.
     $target = Join-Path $env:LOCALAPPDATA "Programs\Hushsub Translate"
     if (-not (Test-Path -LiteralPath "$target\CaptionsApp.ps1")) {
-        $whole = @(Test-Path -LiteralPath "captions.ps1", "install.ps1", "update.ps1", "launcher.cs", "Profiles", "Plugins", "fonts") -notcontains $false
-        if (-not $whole -or [Windows.MessageBox]::Show("Install Hushsub Translate? It downloads the caption engine and models (about 20 GB) into $target, then starts captions.`n`nNo: extract the ZIP yourself (right-click it, Extract all) to pick another place.",
-                "Hushsub Translate", "YesNo") -ne "Yes") {
-            if (-not $whole) { [void][Windows.MessageBox]::Show("Extract the ZIP first: right-click it, Extract all, then open Hushsub Translate.bat in the extracted folder.", "Hushsub Translate") }
+        if (@(Test-Path -LiteralPath "captions.ps1", "install.ps1", "update.ps1", "launcher.cs", "Profiles", "Plugins", "fonts") -contains $false) {
+            [void][Windows.MessageBox]::Show("Extract the ZIP first: right-click it, Extract all, then open Hushsub Translate.bat in the extracted folder.", "Hushsub Translate")
             return
         }
         $null = New-Item -ItemType Directory $target -Force
         Get-ChildItem -LiteralPath $PSScriptRoot -Force | Copy-Item -Destination $target -Recurse -Force
-        $null = New-Item -ItemType File "$target\.install-now" -Force  # that Yes was the Install press too: one click to captions
+        $null = New-Item -ItemType File "$target\.install-now" -Force  # the double-click was the Install press too: one click to captions
     }
     $exe = "$target\Hushsub Translate.exe"
     if (Test-Path -LiteralPath $exe) { Start-Process -FilePath $exe }
@@ -869,14 +868,16 @@ if ((Engine-Installed) -and -not (Engine-Running)) {
     }).AddArgument("$PSScriptRoot\audioWhisper")
     $null = $warm.BeginInvoke()
 }
-$win.Add_ContentRendered({
-    # opens at the page's natural size; then the page follows the window's width and a short window scrolls
+$win.Add_Loaded({
+    # opens maximized; restored, it has the page's natural size. The page follows the window's width, a short window scrolls.
+    # Here, before the first frame: no flash. SizeToContent would keep a maximized window at the page's height.
     $page = $win.FindName("Page")
     $win.MinWidth = $win.ActualWidth - $page.ActualWidth + $page.MinWidth
     $win.MinHeight = 320
-    $win.Width = $win.ActualWidth
-    $win.SizeToContent = "Height"  # the height follows the page until the user resizes the window
+    $win.Width, $win.Height = $win.ActualWidth, $win.ActualHeight
+    $win.SizeToContent = "Manual"
     $page.Width = [double]::NaN
+    $win.WindowState = "Maximized"
 })
 $win.Add_StateChanged({ $win.MaxHeight = if ($win.WindowState -eq "Maximized") { [double]::PositiveInfinity } else { [Windows.SystemParameters]::WorkArea.Height } })
 $win.Add_SourceInitialized({ Set-Theme $script:dark })  # now the title bar exists
@@ -1132,7 +1133,7 @@ function Start-Install {
     $script:installer = Start-Process powershell -WindowStyle Hidden -PassThru `
         -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSScriptRoot\install.ps1`""
 }
-# installed from the ZIP a moment ago: its Yes was the Install press, so the download starts without another one
+# installed from the ZIP a moment ago: that double-click was the Install press, so the download starts without another one
 if (Test-Path -LiteralPath ".install-now") {
     Remove-Item -LiteralPath ".install-now" -ErrorAction SilentlyContinue
     if (-not (Engine-Installed) -and -not $script:installer) { Start-Install }
@@ -1228,7 +1229,9 @@ function Save-Shortcut($s) {
         $s.Arguments = "--headless `"$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe`" -NoProfile -ExecutionPolicy Bypass -File `"$PSScriptRoot\CaptionsApp.ps1`""
     }
     $s.WorkingDirectory = $PSScriptRoot
-    $s.IconLocation = "$appIcon,0"
+    # the .exe's own icon (",0": the target's): when the folder is moved or renamed, Windows updates a shortcut's
+    # target but not a separate icon path, which then draws a blank white icon
+    $s.IconLocation = if (Test-Path -LiteralPath $exePath) { ",0" } else { "$appIcon,0" }
     $s.Save()
 }
 # this app's shortcut from before 1.3.0 is Live Captions.lnk (before 1.2.3 it also opened a PowerShell window)
@@ -1237,10 +1240,14 @@ if ((Test-Path -LiteralPath $oldLnkPath) -and "$((New-Object -ComObject WScript.
     Save-Shortcut (New-Object -ComObject WScript.Shell).CreateShortcut($lnkPath)
     Remove-Item -LiteralPath $oldLnkPath -ErrorAction SilentlyContinue
 }
-# shortcuts from before 1.4.6 open the script: now the .exe
-foreach ($p in $lnkPath, $startPath) {
+# shortcuts from before 1.4.6 open the script: now the .exe. Ones from before 1.5.1 point at app.ico, blank once the
+# folder moved: now the .exe's icon. One whose app is gone (the folder was moved or renamed) opens this copy.
+$pinned = "$env:APPDATA\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar\Hushsub Translate.lnk"
+foreach ($p in $lnkPath, $startPath, $pinned) {
     $s = if (Test-Path -LiteralPath $p) { (New-Object -ComObject WScript.Shell).CreateShortcut($p) }
-    if ($s -and (Test-Path -LiteralPath $exePath) -and "$($s.Arguments)".Contains("$PSScriptRoot\CaptionsApp.ps1")) { Save-Shortcut $s }
+    if (-not $s -or -not (Test-Path -LiteralPath $exePath)) { continue }
+    $gone = -not $s.TargetPath -or -not (Test-Path -LiteralPath $s.TargetPath)
+    if ($gone -or "$($s.Arguments)".Contains("$PSScriptRoot\CaptionsApp.ps1") -or ($s.TargetPath -eq $exePath -and $s.IconLocation -ne ",0")) { Save-Shortcut $s }
 }
 # the app was Private Captions before 1.5.0: its shortcuts become Hushsub Translate.lnk, a taskbar pin opens Hushsub Translate.exe,
 # and the old .exe goes (while it still runs, at the next start). Only this folder's: never another copy's.
