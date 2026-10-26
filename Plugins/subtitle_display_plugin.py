@@ -274,8 +274,9 @@ _REPEAT = re.compile(r"\b(\w.{0,39}?)(?:[\s,.!?、。…]{1,3}\1\b){2,}", re.IGN
 
 # Source lines that are only Japanese filler sounds ("うううう", "なんか", "えーっと").
 # Translators turn these into junk like "Oh, my God.", so they are not shown at all.
+# No word made only of the [...] sounds ("うーん"): two ways to match it backtracks exponentially (CodeQL py/redos).
 _FILLER = re.compile(
-    r"^(?:[\sあいうえおぁぃぅぇぉんーっ〜~、。!！?？…・]|なんか|えーっと|えっと|えーと|あの|その|うーん|まあ|ほら)*$")
+    r"^(?:[\sあいうえおぁぃぅぇぉんーっ〜~、。!！?？…・]|なんか|えーっと|えっと|えーと|あの|その|まあ|ほら)*$")
 
 
 # Whole-line sound events Whisper writes in Japanese -> YouTube-style tags (shown instead of a translation).
