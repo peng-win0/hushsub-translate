@@ -1,6 +1,6 @@
 # Offline check of the YouTube-style roll-up: lines fill up, scroll off the top, and lines already on screen
 # never re-wrap when new text arrives. usage: python bench/test_captions.py
-import importlib.util, os, sys, types
+import importlib.util, os, sys, time, types
 
 sys.modules["Plugins"] = types.SimpleNamespace(Base=object)
 path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Plugins", "subtitle_display_plugin.py")
@@ -75,6 +75,12 @@ for said, shown in [("For some reason, there was something at the left-hand corn
                     ("Uhura is here.", "Uhura is here."), ("Uh...", "Uh..."), ("Hmm, what kind?", "Hmm, what kind?"),
                     ("- The staff...", "The staff..."), ("-5 degrees.", "-5 degrees.")]:  # NLLB's subtitle dash goes
     assert sdp.collapse_repeats(said) == shown, (said, sdp.collapse_repeats(said))
+for said, filler in [("うーん", True), ("えーっと、あの…", True), ("まあ、うーん。", True), ("なんか", True),
+                     ("うーん、そうですね", False), ("", False)]:
+    assert sdp.is_filler(said) == filler, said
+t = time.perf_counter()
+assert not sdp.is_filler("うーん" * 2000 + "X")  # a looping hallucination: linear, not exponential
+assert time.perf_counter() - t < 0.5
 print("fillers ok")
 
 # Every language the app lists has a Whisper code the plugin maps (spoken Auto) and a name MiLMMT knows.
