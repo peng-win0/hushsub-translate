@@ -6,11 +6,11 @@
 $app = Resolve-Path "$PSScriptRoot\.."
 $root = Join-Path ([IO.Path]::GetTempPath()) "pc-test-exe-$PID"
 $null = New-Item -ItemType Directory $root -Force
-Copy-Item -LiteralPath "$app\launcher.cs", "$app\app.ico" -Destination $root
+Copy-Item -LiteralPath "$app\launcher.cs", "$app\icon.ico" -Destination $root
 $ast = [Management.Automation.Language.Parser]::ParseFile("$app\CaptionsApp.ps1", [ref]$null, [ref]$null)
 $fn = $ast.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq "Build-Exe" }, $true)
 Invoke-Expression ($fn.Extent.Text -replace '\$PSScriptRoot', '$root')
-$exePath, $appIcon = "$root\Hushsub Translate.exe", "$root\app.ico"
+$exePath, $appIcon = "$root\Hushsub Translate.exe", "$root\icon.ico"
 function Fail($what) { "FAIL: $what"; Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue; exit 1 }
 function Version { "$([Reflection.AssemblyName]::GetAssemblyName($exePath).Version)" }
 

@@ -115,6 +115,7 @@ $script:updateApply = $false
 $script:applied = $null   # the version auto-update already tried (once per version and session)
 $updated = "$(Get-Content -LiteralPath '.update-done' -ErrorAction SilentlyContinue)".Trim()  # left by the update that reopened us
 Remove-Item -LiteralPath ".update-done" -ErrorAction SilentlyContinue
+if ($updated) { Remove-Item -LiteralPath ".update-backup" -Recurse -Force -ErrorAction SilentlyContinue }  # updaters before 1.5.2 left it
 $script:conhost = $null   # the console window process we started
 $script:running = if ($saved) { $saved.running } else { $null }  # mode of the captions now running
 $script:restart = $false  # start again (new budget / step down) once the running engine has exited
@@ -881,9 +882,12 @@ $win.Add_Loaded({
 })
 $win.Add_StateChanged({ $win.MaxHeight = if ($win.WindowState -eq "Maximized") { [double]::PositiveInfinity } else { [Windows.SystemParameters]::WorkArea.Height } })
 $win.Add_SourceInitialized({ Set-Theme $script:dark })  # now the title bar exists
-$appIcon = Join-Path $PSScriptRoot "app.ico"
+# OnLoad reads the file and closes it: an open window used to keep app.ico locked, so every update (run while the
+# window is open) failed on it. The new name gets past the locked app.ico of the window an older updater runs beside.
+$appIcon = Join-Path $PSScriptRoot "icon.ico"
+Remove-Item -LiteralPath "app.ico" -ErrorAction SilentlyContinue  # the old name, from before 1.5.2
 if (Test-Path -LiteralPath $appIcon) {
-    $win.Icon = [Windows.Media.Imaging.BitmapFrame]::Create([Uri]$appIcon)  # title bar and taskbar
+    $win.Icon = [Windows.Media.Imaging.BitmapFrame]::Create([Uri]$appIcon, "None", "OnLoad")  # title bar and taskbar
     $win.FindName("Logo").Source = ([Windows.Media.Imaging.BitmapDecoder]::Create([Uri]$appIcon, "None", "OnLoad").Frames | Sort-Object PixelWidth)[-1]
 }
 $brush = @{}
