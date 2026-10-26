@@ -168,5 +168,7 @@ draws the overlay.
   `python bench/live_accuracy.py bench/out/NAME.jsonl` scores a bench run's live line as the overlay shows it;
   `python bench/english.py` makes English test audio for it with the Windows voices, and with
   `--words bench/out/english.words.json` it also tells how long after each word is said it is on screen.
+  `sh bench/langs.sh` measures recognition per language on Google's FLEURS read-speech clips (`bench/fleurs.py`
+  fetches 12 per language), ~6 min a language; run it again after a stop and it goes on where it stopped.
 - `docs/` holds the README images, this page and the [runbook](runbook.md) (releases, rollback, reports); `.github/` the issue form, the [security policy](../.github/SECURITY.md), the tests
   workflow and Dependabot (keeps the workflow's pinned actions current).
