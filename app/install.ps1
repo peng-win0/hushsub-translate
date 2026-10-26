@@ -19,7 +19,7 @@ $downloaded, $blocked = $false, $true
 foreach ($url in $urls) {
     # retry here, not with curl's --retry: that throws away what the run downloaded, a re-run resumes it (-C -)
     for ($try = 1; $try -le 5; $try++) {
-        & $curl -L --fail --speed-limit 1024 --speed-time 60 -C - -s -o $zip $url  # ends on a dead connection (<1 KB/s for 60 s)
+        & $curl -L --fail --connect-timeout 30 --speed-limit 1024 --speed-time 60 -C - -s -o $zip $url  # ends on a dead connection (no answer in 30 s, <1 KB/s for 60 s)
         if ($LASTEXITCODE -notin 18, 28, 56) { break }  # partial file, stalled, connection reset: try again
         Start-Sleep 5
     }
