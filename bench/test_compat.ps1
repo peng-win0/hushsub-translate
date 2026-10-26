@@ -59,7 +59,7 @@ foreach ($case in @(@("zh-TW", "Chinese (Traditional)"), @("zh-HK", "Chinese (Tr
 
 # captions.ps1's lookup of the default speakers (0) and microphone (1) compiles, and answers a name or null, never
 # throws: CI has no audio devices, a PC has both
-$cap = [Management.Automation.Language.Parser]::ParseFile("$PSScriptRoot\..\captions.ps1", [ref]$null, [ref]$null)
+$cap = [Management.Automation.Language.Parser]::ParseFile("$PSScriptRoot\..\app\captions.ps1", [ref]$null, [ref]$null)
 $add = $cap.FindAll({ param($n) $n -is [Management.Automation.Language.CommandAst] -and "$($n.GetCommandName())" -eq "Add-Type" }, $true) |
     Where-Object { "$_" -like "*-Name Speakers*" }
 Invoke-Expression $add.Extent.Text

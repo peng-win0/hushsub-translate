@@ -5,12 +5,12 @@
 # usage: powershell -File bench/test_exe.ps1
 $app = Resolve-Path "$PSScriptRoot\.."
 $root = Join-Path ([IO.Path]::GetTempPath()) "pc-test-exe-$PID"
-$null = New-Item -ItemType Directory $root -Force
-Copy-Item -LiteralPath "$app\launcher.cs", "$app\icon.ico" -Destination $root
+$null = New-Item -ItemType Directory "$root\app" -Force
+Copy-Item -LiteralPath "$app\app\launcher.cs", "$app\app\icon.ico" -Destination "$root\app"
 $ast = [Management.Automation.Language.Parser]::ParseFile("$app\CaptionsApp.ps1", [ref]$null, [ref]$null)
 $fn = $ast.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq "Build-Exe" }, $true)
 Invoke-Expression ($fn.Extent.Text -replace '\$PSScriptRoot', '$root')
-$exePath, $appIcon = "$root\Hushsub Translate.exe", "$root\icon.ico"
+$exePath, $appIcon = "$root\Hushsub Translate.exe", "$root\app\icon.ico"
 function Fail($what) { "FAIL: $what"; Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue; exit 1 }
 function Version { "$([Reflection.AssemblyName]::GetAssemblyName($exePath).Version)" }
 
@@ -33,7 +33,7 @@ $want = "$root|$root|Bypass|STA|Hushsub Translate"
 if ("$(Get-Content -LiteralPath "$root\probe.txt" -ErrorAction SilentlyContinue)" -ne $want) { Fail "runs the script: $(Get-Content "$root\probe.txt")" }
 "runs ok"
 
-(Get-Content -LiteralPath "$root\launcher.cs") -replace 'AssemblyVersion\("[\d.]+"\)', 'AssemblyVersion("9.9.9.9")' | Set-Content "$root\launcher.cs"
+(Get-Content -LiteralPath "$root\app\launcher.cs") -replace 'AssemblyVersion\("[\d.]+"\)', 'AssemblyVersion("9.9.9.9")' | Set-Content "$root\app\launcher.cs"
 Build-Exe  # while the old one runs
 if ((Version) -ne "9.9.9.9") { Fail "rebuild while running: $(Version)" }
 $null = New-Item -ItemType File "$root\go"

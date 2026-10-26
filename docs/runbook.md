@@ -34,7 +34,7 @@ Python 3.11.
    open (once no captions run). The updater checks the version and that every script parses before it replaces a
    file.
 
-If `launcher.cs` changed, raise its `AssemblyVersion` too: the app rebuilds `Hushsub Translate.exe` only then.
+If `app/launcher.cs` changed, raise its `AssemblyVersion` too: the app rebuilds `Hushsub Translate.exe` only then.
 
 ## A bad release
 
@@ -52,10 +52,10 @@ said. Most reports are one of the README's troubleshooting entries.
 
 ## A new engine or model
 
-- **Engine:** change the mirrors and `$sha256` in `install.ps1` (the SHA-256 of the engine's ZIP), then try
+- **Engine:** change the mirrors and `$sha256` in `app/install.ps1` (the SHA-256 of the engine's ZIP), then try
   each mode on a PC with an NVIDIA card and one without. Check that the plugin's hooks (`stt_caption`,
-  `streaming_caption_text`) and the profile keys that `captions.ps1` and `CaptionsApp.ps1` write still exist.
-- **A model:** change its entry (`File`, `Size`, `Sha`) at the top of `captions.ps1`. Measure it with the kit in
+  `streaming_caption_text`) and the profile keys that `app/captions.ps1` and `CaptionsApp.ps1` write still exist.
+- **A model:** change its entry (`File`, `Size`, `Sha`) at the top of `app/captions.ps1`. Measure it with the kit in
   `bench/` against the current one first (see the decision log for what was tried and rejected).
 
 ## CI fails

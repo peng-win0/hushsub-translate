@@ -10,7 +10,7 @@ base=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits)
 if [ "$base" -gt 1500 ]; then echo "GPU busy (${base} MiB); not starting"; exit 0; fi
 sed -e "s/^websocket_ip: .*/websocket_ip: 127.0.0.1/" -e "s/^websocket_port: .*/websocket_port: 5002/" -e "s/^osc_server_port: .*/osc_server_port: 9011/" \
     -e "s/^settingsfilename: .*/settingsfilename: MTEVAL.yaml/" -e "s/^  SubtitleDisplayPlugin: true/  SubtitleDisplayPlugin: false/" \
-    Profiles/fast.yaml > "$M/out/MTEVAL.yaml"
+    app/Profiles/fast.yaml > "$M/out/MTEVAL.yaml"
 cp "$M/zz_mt_eval.py" Plugins/zz_mt_eval.py
 printf '%s\n%s\n' "$(cygpath -m "$M/${1:-sentences.json}")" "$(cygpath -m "$M/out/${2:-results.json}")" > mt_eval.flag
 nvidia-smi --query-gpu=timestamp,memory.used --format=csv,noheader -l 2 > "$M/out/vram.csv" &

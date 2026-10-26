@@ -21,7 +21,7 @@ if ($PSScriptRoot -like "$([IO.Path]::GetTempPath())*") {  # opened inside the Z
     # No question: the double-click was the choice, and Install still warns when the disk is short of the ~20 GB.
     $target = Join-Path $env:LOCALAPPDATA "Programs\Hushsub Translate"
     if (-not (Test-Path -LiteralPath "$target\CaptionsApp.ps1")) {
-        if (@(Test-Path -LiteralPath "captions.ps1", "install.ps1", "update.ps1", "launcher.cs", "Profiles", "Plugins", "fonts") -contains $false) {
+        if (@(Test-Path -LiteralPath "app\captions.ps1", "app\install.ps1", "app\update.ps1", "app\launcher.cs", "app\Profiles", "app\fonts", "Plugins") -contains $false) {
             [void][Windows.MessageBox]::Show("Extract the ZIP first: right-click it, Extract all, then open Hushsub Translate.bat in the extracted folder.", "Hushsub Translate")
             return
         }
@@ -35,6 +35,12 @@ if ($PSScriptRoot -like "$([IO.Path]::GetTempPath())*") {  # opened inside the Z
     return
 }
 Remove-Item -LiteralPath "Live Captions.bat", "Private Captions.bat" -ErrorAction SilentlyContinue  # the launcher's names before 1.3.0 and 1.5.0 (updates never remove files)
+# 1.6.0 moved this app's own files into app\, so the folder shows only what a user opens. An older updater installed
+# app\ beside the old files: the user's words move in, the old copies go (app.ico: the icon's name before 1.5.2).
+if (Test-Path -LiteralPath "app\captions.ps1") {
+    foreach ($f in "glossary.txt", "fake-lines.txt") { if (Test-Path -LiteralPath $f) { Move-Item -LiteralPath $f "app\$f" -Force -ErrorAction SilentlyContinue } }
+    Remove-Item -LiteralPath "captions.ps1", "install.ps1", "update.ps1", "launcher.cs", "icon.ico", "app.ico", "Profiles", "fonts" -Recurse -Force -ErrorAction SilentlyContinue
+}
 # One window, like any app: starting it again brings the open window to the front (two windows would fight over one engine)
 $instance = New-Object Threading.Mutex($false, "Local\PrivateCaptionsApp")
 try { $first = $instance.WaitOne(0) } catch [Threading.AbandonedMutexException] { $first = $true }  # the last one crashed
@@ -129,7 +135,7 @@ function Engine-Installed { Test-Path -LiteralPath "audioWhisper\audioWhisper.ex
 # install.ps1 process (one started before this window was last closed keeps downloading: adopt it). Only looked for
 # until the engine is in place: the process list costs 0.2 s of every start.
 $script:installer = if (-not (Engine-Installed)) { Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { "$($_.CommandLine)".Contains("$PSScriptRoot\install.ps1") } | ForEach-Object { Get-Process -Id $_.ProcessId -ErrorAction SilentlyContinue } | Select-Object -First 1 }
+    Where-Object { "$($_.CommandLine)".Contains("$PSScriptRoot\app\install.ps1") } | ForEach-Object { Get-Process -Id $_.ProcessId -ErrorAction SilentlyContinue } | Select-Object -First 1 }
 
 function Model-Items($name) { $models[$name].Paths | ForEach-Object { Get-Item -Path ".cache\$_" -Force -ErrorAction SilentlyContinue } }
 
@@ -208,7 +214,7 @@ function Start-Update($apply) {
     if ($script:managed -or ($script:updater -and -not $script:updater.HasExited)) { return }
     $script:updateApply = $apply
     $script:updater = Start-Process powershell -WindowStyle Hidden -PassThru `
-        -ArgumentList ("-NoProfile -ExecutionPolicy Bypass -File `"$PSScriptRoot\update.ps1`"" + $(if ($apply) { " -Apply" }))
+        -ArgumentList ("-NoProfile -ExecutionPolicy Bypass -File `"$PSScriptRoot\app\update.ps1`"" + $(if ($apply) { " -Apply" }))
 }
 
 function Start-Captions($m, [switch]$Paused) {
@@ -222,14 +228,14 @@ function Start-Captions($m, [switch]$Paused) {
     $from = if ($script:spoken -ne "Auto") { $languages[$script:spoken] } elseif ($to[1] -eq "jpn_Jpan") { "auto", "eng_Latn" } else { "auto", "jpn_Jpan" }
     $script:app = Resolve-Browser
     $script:startKey = Start-Key $script:app
-    $yamlPath = "$PSScriptRoot\Profiles\$($modes[$m].Profile).yaml"
+    $yamlPath = "$PSScriptRoot\app\Profiles\$($modes[$m].Profile).yaml"
     $yaml = (Get-Content -LiteralPath $yamlPath -Encoding UTF8) -replace '^realtime: .*', "realtime: $("$([bool]$live.IsChecked)".ToLower())" `
         -replace '^current_language: .*', "current_language: $($from[0])" -replace '^src_lang: .*', "src_lang: $($from[1])" -replace '^trg_lang: .*', "trg_lang: $($to[1])"
     [IO.File]::WriteAllLines($yamlPath, [string[]]$yaml)  # UTF-8 without BOM
     Remove-Item -LiteralPath ".captions-window", ".captions-stats", ".captions-failed", ".captions-log", ".captions-download", ".captions-ready", ".captions-restart" -ErrorAction SilentlyContinue
     if ($Paused) { Pause-Captions } else { Remove-Item -LiteralPath ".captions-paused" -ErrorAction SilentlyContinue }
-    $ps = "powershell -NoLogo -NoProfile -NoExit -ExecutionPolicy Bypass -File `"$PSScriptRoot\captions.ps1`"" +
-          " -ProfilePath `"Profiles\$($modes[$m].Profile).yaml`" -App $script:app -Title `"Hushsub Translate - $m (close to stop)`""
+    $ps = "powershell -NoLogo -NoProfile -NoExit -ExecutionPolicy Bypass -File `"$PSScriptRoot\app\captions.ps1`"" +
+          " -ProfilePath `"app\Profiles\$($modes[$m].Profile).yaml`" -App $script:app -Title `"Hushsub Translate - $m (close to stop)`""
     # conhost: a classic console window we can hide, show and close gracefully (a Windows Terminal tab can't)
     $script:conhost = Start-Process conhost.exe -ArgumentList $ps -WindowStyle Hidden -PassThru
 }
@@ -846,8 +852,8 @@ $motion = if ([Windows.SystemParameters]::ClientAreaAnimation) { 0.25 } else { 0
 $xaml = $xaml.Replace("__Motion__", "0:0:$motion").Replace("__Quick__", "0:0:$($motion / 2)")
 foreach ($k in $theme.Keys) { $xaml = $xaml.Replace("__$($k)__", "{DynamicResource T_$k}") }  # colors: Set-Theme
 $win = [Windows.Markup.XamlReader]::Parse($xaml)
-# Google Sans Flex (fonts\OFL.txt); Segoe UI draws what it lacks (Japanese, ...) and everything if it is missing
-$win.FontFamily = New-Object Windows.Media.FontFamily ([Uri]"$PSScriptRoot\fonts\"),"./#Google Sans Flex, Segoe UI Variable Text, Segoe UI"
+# Google Sans Flex (app\fonts\OFL.txt); Segoe UI draws what it lacks (Japanese, ...) and everything if it is missing
+$win.FontFamily = New-Object Windows.Media.FontFamily ([Uri]"$PSScriptRoot\app\fonts\"),"./#Google Sans Flex, Segoe UI Variable Text, Segoe UI"
 $dot, $statusTitle, $statusText, $progress, $button, $logButton, $deleteButton, $gpuText, $budgetText, $live, $lnkButton, $modelBox, $modelsText,
 $langBox, $langText, $preview, $previewText, $previewWindow, $autoUpdate, $updateText, $updateButton, $captionTab, $appTab, $logCard, $logBox =
     "Dot", "StatusTitle", "StatusText", "Progress", "MainButton", "LogButton", "DeleteButton", "GpuText", "BudgetText", "Live", "Shortcut", "Models", "ModelsText",
@@ -884,8 +890,7 @@ $win.Add_StateChanged({ $win.MaxHeight = if ($win.WindowState -eq "Maximized") {
 $win.Add_SourceInitialized({ Set-Theme $script:dark })  # now the title bar exists
 # OnLoad reads the file and closes it: an open window used to keep app.ico locked, so every update (run while the
 # window is open) failed on it. The new name gets past the locked app.ico of the window an older updater runs beside.
-$appIcon = Join-Path $PSScriptRoot "icon.ico"
-Remove-Item -LiteralPath "app.ico" -ErrorAction SilentlyContinue  # the old name, from before 1.5.2
+$appIcon = Join-Path $PSScriptRoot "app\icon.ico"
 if (Test-Path -LiteralPath $appIcon) {
     $win.Icon = [Windows.Media.Imaging.BitmapFrame]::Create([Uri]$appIcon, "None", "OnLoad")  # title bar and taskbar
     $win.FindName("Logo").Source = ([Windows.Media.Imaging.BitmapDecoder]::Create([Uri]$appIcon, "None", "OnLoad").Frames | Sort-Object PixelWidth)[-1]
@@ -990,7 +995,7 @@ $showOriginal.IsChecked = [bool]($saved -and $saved.showOriginal)  # off unless 
 $showOriginal.Add_Click({ Save-Settings })
 # Your words = glossary.txt without its # help lines (kept on Save). The plugin re-reads it on the next line.
 $wordsBox = $win.FindName("Words"); $wordsNote = $win.FindName("WordsNote")
-function Read-Words { @(Get-Content -LiteralPath "glossary.txt" -Encoding UTF8 -ErrorAction SilentlyContinue) }
+function Read-Words { @(Get-Content -LiteralPath "app\glossary.txt" -Encoding UTF8 -ErrorAction SilentlyContinue) }
 $wordsBox.Text = @(Read-Words | Where-Object { $_.Trim() -and -not $_.TrimStart().StartsWith("#") }) -join "`r`n"
 function Word-Lines([string]$text) { @($text -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
 $script:savedWords = (Word-Lines $wordsBox.Text) -join "`n"  # closing the window asks before losing edits to it
@@ -999,7 +1004,7 @@ function Save-Words([string]$text) {
     $bad = @($lines | Where-Object { -not $_.StartsWith("#") -and $_ -notmatch '^[^=]*\S[^=]*=' })
     if ($bad) { $wordsNote.Text = "Needs heard = shown: $($bad[0])"; return }
     $help = @(Read-Words | Where-Object { $_.TrimStart().StartsWith("#") })
-    [IO.File]::WriteAllLines("$PSScriptRoot\glossary.txt", [string[]]($help + $lines))  # UTF-8 without BOM
+    [IO.File]::WriteAllLines("$PSScriptRoot\app\glossary.txt", [string[]]($help + $lines))  # UTF-8 without BOM
     $wordsNote.Text = if ($lines) { "Saved." } else { "All deleted." }
     $script:savedWords = $lines -join "`n"
 }
@@ -1135,7 +1140,7 @@ function Start-Install {
             "Hushsub Translate", "YesNo") -ne "Yes") { return }
     Remove-Item -LiteralPath ".install-error.txt" -ErrorAction SilentlyContinue
     $script:installer = Start-Process powershell -WindowStyle Hidden -PassThru `
-        -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSScriptRoot\install.ps1`""
+        -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSScriptRoot\app\install.ps1`""
 }
 # installed from the ZIP a moment ago: that double-click was the Install press, so the download starts without another one
 if (Test-Path -LiteralPath ".install-now") {
@@ -1205,7 +1210,7 @@ $win.FindName("CopyLog").Add_Click({ param($s) Copy-Text $s (Hide-Personal $logB
 # changes (an update): a running .exe can't be overwritten, but it can be renamed out of the way.
 $exePath = Join-Path $PSScriptRoot "Hushsub Translate.exe"
 function Build-Exe {
-    $src = Join-Path $PSScriptRoot "launcher.cs"
+    $src = Join-Path $PSScriptRoot "app\launcher.cs"
     $old = Join-Path $PSScriptRoot "Hushsub Translate.old.exe"
     Remove-Item -LiteralPath $old -ErrorAction SilentlyContinue
     $want = [regex]::Match([IO.File]::ReadAllText($src), 'AssemblyVersion\("([\d.]+)"\)').Groups[1].Value

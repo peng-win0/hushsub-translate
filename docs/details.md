@@ -55,7 +55,7 @@ The window has two pages.
     The last 1,000 lines are kept in memory only and are gone when captions stop.
   - **Your words:** names and terms the captions get wrong, one per line as `heard = shown`
     (`マリア = Maria`). **Save** applies them from the next line, also while captions are on. They are kept in
-    `glossary.txt` on this PC only. **Delete all** removes them.
+    `app/glossary.txt` on this PC only. **Delete all** removes them.
 - **App**
   - **Theme:** Dark (the default), Light, or System to follow Windows. Windows contrast themes always use their own colors.
   - **Listen to:** **Auto** listens to the browser that is open when you press Start, or your default browser if
@@ -144,15 +144,16 @@ draws the overlay.
 | File | Purpose |
 |---|---|
 | `Hushsub Translate.bat` | Opens the app (the .exe once it exists). |
-| `launcher.cs` | Source of `Hushsub Translate.exe`, which the app builds on its first start and after an update changes it. The .exe runs `CaptionsApp.ps1` inside itself, so Windows shows Hushsub Translate, not PowerShell. |
 | `CaptionsApp.ps1` | The app window. |
-| `install.ps1` | Downloads and checks the engine. |
-| `captions.ps1` | Runs the engine: downloads the mode's models, waits for the browser, speakers or microphone, restarts after a crash. |
-| `update.ps1` | Installs a newer GitHub release (`version.txt`) after checking its version and scripts. |
-| `Profiles/*.yaml` | Engine settings for Accurate, Balanced, Fast, Lite and CPU. The engine rewrites its profile on start, so close it before editing one. |
-| `glossary.txt` | Names and terms the translator or speech recognition gets wrong (for example product or team names), swapped in before translation, in every spoken language. Edit it under **Your words**; used from the next line. |
-| `fake-lines.txt` | Lines Whisper makes up during silence or music, like "Thanks for watching". A caption that is exactly one of them is dropped. Add your own. |
-| `fonts/` | Google Sans Flex, the app's font. |
+| `Plugins/` | The plugin above; the engine loads it from here. |
+| `app/launcher.cs` | Source of `Hushsub Translate.exe`, which the app builds on its first start and after an update changes it. The .exe runs `CaptionsApp.ps1` inside itself, so Windows shows Hushsub Translate, not PowerShell. |
+| `app/install.ps1` | Downloads and checks the engine. |
+| `app/captions.ps1` | Runs the engine: downloads the mode's models, waits for the browser, speakers or microphone, restarts after a crash. |
+| `app/update.ps1` | Installs a newer GitHub release (`version.txt`) after checking its version and scripts. |
+| `app/Profiles/*.yaml` | Engine settings for Accurate, Balanced, Fast, Lite and CPU. The engine rewrites its profile on start, so close it before editing one. |
+| `app/glossary.txt` | Names and terms the translator or speech recognition gets wrong (for example product or team names), swapped in before translation, in every spoken language. Edit it under **Your words**; used from the next line. |
+| `app/fake-lines.txt` | Lines Whisper makes up during silence or music, like "Thanks for watching". A caption that is exactly one of them is dropped. Add your own. |
+| `app/fonts/` | Google Sans Flex, the app's font. |
 
 **Development.** These are in the repository but not in the download:
 

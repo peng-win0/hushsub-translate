@@ -17,7 +17,7 @@ $out = Hide-Personal $in
 if ($out -ne $want) { "FAIL:`n$out"; exit 1 }
 if ($out -match [regex]::Escape($u) -or $out -match "Contoso") { "FAIL: leaked"; exit 1 }
 # the log file never holds what was said (Hide-Said, captions.ps1)
-$ast = [Management.Automation.Language.Parser]::ParseFile("$PSScriptRoot\..\captions.ps1", [ref]$null, [ref]$null)
+$ast = [Management.Automation.Language.Parser]::ParseFile("$PSScriptRoot\..\app\captions.ps1", [ref]$null, [ref]$null)
 Invoke-Expression $ast.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq "Hide-Said" }, $true).Extent.Text
 $out = Hide-Said "ready`r`nTranscribe: secret words`r`nskipping... result:  {'text': 'secret'}`r`nTranscribe (OSC): secret`r`nTranscribe: `r`nok"
 if ($out -ne "ready`r`nTranscribe: (text hidden)`r`nskipping... result: (text hidden)`r`nTranscribe (OSC): (text hidden)`r`nTranscribe: (text hidden)`r`nok") { "FAIL said:`n$out"; exit 1 }

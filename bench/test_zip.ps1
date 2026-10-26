@@ -8,7 +8,7 @@ $t = Join-Path ([IO.Path]::GetTempPath()) "pc-test-zip-$PID"
 $src = "$t\Temp1_hushsub-translate-main.zip\hushsub-translate-main"
 function Fail($what) { "FAIL: $what"; Set-Location $app; Remove-Item -LiteralPath $t -Recurse -Force -ErrorAction SilentlyContinue; exit 1 }
 $null = New-Item -ItemType Directory $src -Force
-Copy-Item -LiteralPath ("CaptionsApp.ps1", "captions.ps1", "install.ps1", "update.ps1", "launcher.cs", "Profiles", "Plugins", "fonts" | ForEach-Object { "$app\$_" }) -Destination $src -Recurse
+Copy-Item -LiteralPath "$app\CaptionsApp.ps1", "$app\app", "$app\Plugins" -Destination $src -Recurse
 $ast = [Management.Automation.Language.Parser]::ParseFile("$app\CaptionsApp.ps1", [ref]$null, [ref]$null)
 $block = $ast.Find({ param($n) $n -is [Management.Automation.Language.IfStatementAst] -and $n.Clauses[0].Item1.Extent.Text -like '*GetTempPath*' }, $false)
 if (-not $block) { Fail "CaptionsApp.ps1 changed, update this test: no ZIP check" }
@@ -26,7 +26,7 @@ Set-Location -LiteralPath $src
 
 Open-Zip
 if ([Dialog]::Asked.Count) { Fail "asked: $([Dialog]::Asked)" }
-if (@(Test-Path -LiteralPath "$target\CaptionsApp.ps1", "$target\Profiles\balanced.yaml", "$target\Plugins\subtitle_display_plugin.py") -contains $false) { Fail "not copied" }
+if (@(Test-Path -LiteralPath "$target\CaptionsApp.ps1", "$target\app\Profiles\balanced.yaml", "$target\Plugins\subtitle_display_plugin.py") -contains $false) { Fail "not copied" }
 if (-not "$script:launched".Contains("$target\CaptionsApp.ps1")) { Fail "opened: $script:launched" }
 if (-not (Test-Path -LiteralPath "$target\.install-now")) { Fail "Install not started with the same double-click" }
 "install ok"
@@ -40,7 +40,7 @@ Remove-Item -LiteralPath "$target\.install-now"
 "open installed ok"
 
 [Dialog]::Asked = @()
-Remove-Item -LiteralPath $target, "$src\fonts" -Recurse -Force
+Remove-Item -LiteralPath $target, "$src\app\fonts" -Recurse -Force
 Open-Zip
 if ([Dialog]::Asked.Count -ne 1 -or [Dialog]::Asked[0] -notlike "Extract the ZIP first*") { Fail "incomplete copy: $([Dialog]::Asked)" }
 if (Test-Path -LiteralPath $target) { Fail "installed an incomplete copy" }

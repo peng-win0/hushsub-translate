@@ -104,7 +104,7 @@ measurements, using it at work (IT rules, several PCs, update policy, model lice
 
 MIT, see [`LICENSE`](LICENSE). Built on the [Whispering Tiger](https://github.com/Sharrnah/whispering) engine. The
 font [Google Sans Flex](https://github.com/googlefonts/googlesans-flex) is under the SIL Open Font License
-([`fonts/OFL.txt`](fonts/OFL.txt)). The models keep their own licenses: [Whisper](https://github.com/openai/whisper),
+([`app/fonts/OFL.txt`](app/fonts/OFL.txt)). The models keep their own licenses: [Whisper](https://github.com/openai/whisper),
 [MiLMMT-46](https://huggingface.co/xiaomi-research/MiLMMT-46-1B-v1.0),
 [NLLB-200](https://huggingface.co/facebook/nllb-200-distilled-600M), [LFM2](https://huggingface.co/LiquidAI/LFM2-350M-ENJP-MT)
 and [Silero VAD](https://github.com/snakers4/silero-vad).
