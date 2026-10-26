@@ -1,7 +1,7 @@
 # Test audio in each language: the first clips of Google's FLEURS test sets (people reading Wikipedia sentences,
 # CC BY 4.0), to measure recognition per language. Reads each language's archive only up to its last needed clip
 # (~5 MB, not the whole 0.4 GB). Read speech is easier than the TV clips in bench/clips: compare languages with it.
-# usage: python -I bench/fleurs.py [clips per language, 12] [FLEURS config ...]
+# usage: python -I bench/fleurs.py [clips per language, 12] [FLEURS config ...]   (skips languages it already has)
 #   -> bench/out/fleurs/<code>.raw (16 kHz mono PCM16), .refs.json, .ends.json, and lang_<code>.yaml (a copy of the
 #   balanced profile in that language, captions in English; English's in Japanese). Then, for each language:
 #   RAW=bench/out/fleurs/<code>.raw REFS=bench/out/fleurs/<code>.refs.json ENDS=bench/out/fleurs/<code>.ends.json \
@@ -66,11 +66,16 @@ def main():
         profile = f.read()
     for cfg in cfgs:
         code, nllb = LANGS[cfg]
-        try:
-            pcm, refs, ends = fetch(cfg, n)
-        except Exception as e:  # one missing language doesn't stop the rest
-            print(f"{cfg}: failed: {e}")
+        if os.path.exists(os.path.join(OUT, f"lang_{code}.yaml")):  # written last: this language is complete
             continue
+        for attempt in range(3):  # a stalled download ends on urlopen's timeout and starts over
+            try:
+                pcm, refs, ends = fetch(cfg, n)
+                break
+            except Exception as e:
+                print(f"{cfg}: try {attempt + 1} failed: {e}")
+        else:
+            continue  # one missing language doesn't stop the rest; the next run tries it again
         base = os.path.join(OUT, code)
         with open(base + ".raw", "wb") as f:
             f.write(pcm)
