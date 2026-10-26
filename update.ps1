@@ -2,13 +2,18 @@
 # - always: writes the newest released version to .update-latest (the app compares it with version.txt)
 # - with -Apply, if that is newer and no caption engine runs: downloads the release, checks it, backs up the files
 #   it replaces to .update-backup\ and copies the new ones in (all restored if one fails), then writes .update-done.
-#   version.txt goes last, so an update that didn't finish is tried again.
+#   version.txt goes last, so an update that didn't finish is tried again. The download and temp folder never stay;
+#   the backup stays only after a failure (it may hold the only copy of the user's words).
 # Never touches the engine, models or settings (they aren't in a release). glossary.txt and fake-lines.txt
 # keep the user's lines: only lines for new words are added. A git checkout (developer copy) is never changed.
 # -Zip <file> -Version <x.y.z> installs a local release zip instead (bench/test_update.ps1).
 param([switch]$Apply, [string]$Zip, [string]$Version)
 $ErrorActionPreference = "Stop"
-trap { Set-Content -LiteralPath "$PSScriptRoot\.update-error.txt" -Value "$_"; exit 1 }  # shown by the app
+trap {  # shown by the app
+    Set-Content -LiteralPath "$PSScriptRoot\.update-error.txt" -Value "$_"
+    Remove-Item -LiteralPath "$PSScriptRoot\.update", "$PSScriptRoot\.update.zip" -Recurse -Force -ErrorAction SilentlyContinue
+    exit 1
+}
 Set-Location -LiteralPath $PSScriptRoot
 Remove-Item -LiteralPath ".update-error.txt" -ErrorAction SilentlyContinue
 $repo = "peng-win0/hushsub-translate"
@@ -75,12 +80,15 @@ try {
         }
     }
 } catch {
-    foreach ($f in $done) {
-        if (Test-Path -LiteralPath ".update-backup\$f") { Copy-Item -LiteralPath ".update-backup\$f" -Destination $f -Force -ErrorAction SilentlyContinue }
-        else { Remove-Item -LiteralPath $f -ErrorAction SilentlyContinue }
+    $why = $_
+    foreach ($f in $done) {  # each on its own: a file in use mustn't stop the rest (its copy failed, so it's unchanged)
+        try {
+            if (Test-Path -LiteralPath ".update-backup\$f") { Copy-Item -LiteralPath ".update-backup\$f" -Destination $f -Force }
+            else { Remove-Item -LiteralPath $f }
+        } catch {}
     }
-    throw "Update to $Version failed, nothing was changed: $_"
+    throw "Update to $Version failed, nothing was changed: $why"
 }
-Remove-Item -LiteralPath ".update" -Recurse -Force
+Remove-Item -LiteralPath ".update", ".update-backup" -Recurse -Force -ErrorAction SilentlyContinue
 if ($Zip -eq ".update.zip") { Remove-Item -LiteralPath $Zip }
 Set-Content -LiteralPath ".update-done" -Value $Version
