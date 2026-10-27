@@ -42,9 +42,10 @@ If `app/launcher.cs` changed, raise its `AssemblyVersion` too: the app rebuilds 
 - **For everyone:** publish a new, higher version with the fix or the previous code. The updater never goes back
   to a lower version, so deleting the release doesn't undo it for copies that already updated.
 - **For one PC, now:** turn off **Update automatically**, close the app, download the previous release's source ZIP
-  from GitHub and copy what is inside its top folder over the app's folder (the engine, models and settings aren't in
-  it, so they stay). A good update keeps no backup: `.update-backup\` stays only after a failed one, whose files are
-  already restored.
+  from GitHub and copy what is inside its top folder over the app's folder, except `app\glossary.txt` and
+  `app\fake-lines.txt`, which hold the user's own words (the engine, models and settings aren't in it, so they stay).
+  Files the bad release added stay too; they do nothing unless the old code uses them. A good update keeps no backup:
+  `.update-backup\` stays only after a failed one, whose files are already restored.
 
 ## A problem report
 

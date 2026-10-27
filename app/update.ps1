@@ -22,7 +22,8 @@ $curl, $tar = "$env:SystemRoot\System32\curl.exe", "$env:SystemRoot\System32\tar
 $current = try { [version]"$(Get-Content -LiteralPath 'version.txt')".Trim() } catch { [version]"0.0.0" }
 
 if (-not $Zip) {
-    # a blip (reset, 5xx) is retried at once, not reported as "No connection" until tomorrow's check
+    # a timeout, DNS miss, 429 or 5xx is retried at once, not reported as "No connection" until tomorrow's check.
+    # A reset isn't: --retry-all-errors needs curl 7.71, and an unpatched Windows 10 has 7.55 (it would fail every check)
     $code = & $curl -sL --max-time 20 --retry 2 --retry-delay 2 --retry-max-time 30 -o ".update-check.json" -w "%{http_code}" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$repo/releases/latest"
     $release = if ($code -eq "200") { Get-Content -LiteralPath ".update-check.json" -Raw | ConvertFrom-Json }
     Remove-Item -LiteralPath ".update-check.json" -ErrorAction SilentlyContinue
