@@ -127,7 +127,6 @@ $script:running = if ($saved) { $saved.running } else { $null }  # mode of the c
 $script:restart = $false  # start again (new budget / step down) once the running engine has exited
 $script:startKey = $null  # the settings the running captions started with: a paused engine resumes only with the same
 $script:pausedAt = [DateTime]::Now
-$script:preload = [bool]($saved -and $saved.running)  # captions were used before: load them as the app opens, paused
 $script:ceiling = $null   # Auto: best mode allowed after a step-down (reset by Start and budget changes)
 $script:note = ""         # why Auto stepped down
 $script:full = 0          # checks in a row with the GPU memory full
@@ -1476,10 +1475,6 @@ $tick = {
     if ($script:restart -and -not $open -and -not $engine) { $script:restart = $false; Start-Best; $open = Ours-Open }
     # Install done: on to the first captions (their models download now), no second press and wait
     if ($script:installer -and -not $installing -and (Engine-Installed) -and -not $open -and -not $engine) { $script:installer = $null; Start-Best; $open = Ours-Open }
-    if ($script:preload -and $win.IsVisible) {
-        $script:preload = $false  # once the window shows, so it opens as fast as before
-        if ((Engine-Installed) -and -not $open -and -not $engine -and -not $installing -and -not $updating) { Start-Best -Paused; $open = Ours-Open }
-    }
     $paused = $open -and (Test-Path -LiteralPath ".captions-paused")
     $on = ($open -and -not $paused) -or $script:restart  # captions on, or about to be
     if ($on -and $engine -and ++$script:ticks % 5 -eq 0) { Check-Auto }
@@ -1564,8 +1559,8 @@ $tick = {
     # updates: checked daily; with auto-update on, a newer version installs once captions are off
     $latest = "$(Get-Content -LiteralPath '.update-latest' -ErrorAction SilentlyContinue)".Trim()
     $newer = $latest -and $(try { [version]$latest -gt [version]$version } catch { $false })
-    # a paused engine holds GPU memory: it closes after 10 minutes off, or for an update
-    if ($paused -and -not $script:stopping -and ($newer -or ([DateTime]::Now - $script:pausedAt).TotalMinutes -ge 10)) { Stop-Captions }
+    # a paused engine keeps the GPU awake (no sleep, battery): it closes after a minute off, or for an update
+    if ($paused -and -not $script:stopping -and ($newer -or ([DateTime]::Now - $script:pausedAt).TotalMinutes -ge 1)) { Stop-Captions }
     $busy = $open -or $engine -or $installing
     if ($autoUpdate.IsChecked -and ++$script:updateTicks % 86400 -eq 0) { Start-Update $false }
     if ($autoUpdate.IsChecked -and $newer -and -not $busy -and -not $updating -and $script:applied -ne $latest) { $script:applied = $latest; Start-Update $true; $updating = $true }

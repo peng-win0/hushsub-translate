@@ -43,7 +43,8 @@ the ZIP, **Extract all**, and open `Hushsub Translate.bat` in the extracted fold
 
 1. Play the video, stream or meeting in your browser, or in VRChat, Discord, Zoom, Teams or VLC.
 2. Open **Hushsub Translate** and press **Start**. Captions appear over the video.
-3. Press **Stop** when you are done. **Start** brings them back at once.
+3. Press **Stop** when you are done. **Start** within a minute brings them back at once; after that the graphics card
+   is let go so it can sleep, and Start loads them again (a little slower).
 
 - **Languages:** English, Chinese (simplified or traditional), Spanish, French, Portuguese, Russian, Indonesian,
   German, Japanese, Vietnamese, Turkish, Korean, Italian, Polish and Dutch, translated either way. Japanese → English
