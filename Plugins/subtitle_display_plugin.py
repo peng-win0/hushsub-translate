@@ -342,7 +342,7 @@ def load_fake_lines(*paths):
         try:
             with open(path, encoding="utf-8-sig") as f:  # Notepad may save it with a BOM
                 keys.update(_line_key(line) for line in f if not line.lstrip().startswith("#"))
-        except OSError:
+        except (OSError, UnicodeDecodeError):  # saved as ANSI or Shift-JIS: skipped, not a plugin that fails to load
             pass
     keys.discard("")
     return keys
@@ -379,7 +379,7 @@ def load_glossary(path):
     try:
         with open(path, encoding="utf-8-sig") as f:  # Notepad may save it with a BOM
             pairs = dict(line.split("=", 1) for line in f if "=" in line and not line.lstrip().startswith("#"))
-    except OSError:
+    except (OSError, UnicodeDecodeError):  # else it fails again on every line, and nothing is translated
         return None
     pairs = {k.strip().lower(): v.strip() for k, v in pairs.items() if k.strip()}
     if not pairs:
