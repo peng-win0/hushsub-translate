@@ -22,7 +22,8 @@ $curl, $tar = "$env:SystemRoot\System32\curl.exe", "$env:SystemRoot\System32\tar
 $current = try { [version]"$(Get-Content -LiteralPath 'version.txt')".Trim() } catch { [version]"0.0.0" }
 
 if (-not $Zip) {
-    $code = & $curl -sL --max-time 20 -o ".update-check.json" -w "%{http_code}" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$repo/releases/latest"
+    # a blip (reset, 5xx) is retried at once, not reported as "No connection" until tomorrow's check
+    $code = & $curl -sL --max-time 20 --retry 2 --retry-delay 2 --retry-max-time 30 -o ".update-check.json" -w "%{http_code}" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$repo/releases/latest"
     $release = if ($code -eq "200") { Get-Content -LiteralPath ".update-check.json" -Raw | ConvertFrom-Json }
     Remove-Item -LiteralPath ".update-check.json" -ErrorAction SilentlyContinue
     if ($code -eq "000") { throw "No connection to GitHub." }
@@ -38,7 +39,8 @@ if (Get-Process audioWhisper -ErrorAction SilentlyContinue) { return }  # the ap
 
 if (-not $Zip) {
     $Zip = ".update.zip"
-    & $curl -sL --fail --max-time 300 -o $Zip "https://github.com/$repo/archive/refs/tags/$($release.tag_name).zip"
+    # Start waits for this: a retry starts only in the first 2 min, so the worst case is ~7 min (one try was 5)
+    & $curl -sL --fail --connect-timeout 30 --max-time 300 --retry 2 --retry-delay 3 --retry-max-time 120 -o $Zip "https://github.com/$repo/archive/refs/tags/$($release.tag_name).zip"
     if ($LASTEXITCODE) { throw "Download failed (curl $LASTEXITCODE)." }
 }
 if (Test-Path -LiteralPath ".update") { Remove-Item -LiteralPath ".update" -Recurse -Force }
