@@ -21,4 +21,10 @@ $ast = [Management.Automation.Language.Parser]::ParseFile("$PSScriptRoot\..\app\
 Invoke-Expression $ast.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq "Hide-Said" }, $true).Extent.Text
 $out = Hide-Said "ready`r`nTranscribe: secret words`r`nskipping... result:  {'text': 'secret'}`r`nTranscribe (OSC): secret`r`nTranscribe: `r`nok"
 if ($out -ne "ready`r`nTranscribe: (text hidden)`r`nskipping... result: (text hidden)`r`nTranscribe (OSC): (text hidden)`r`nTranscribe: (text hidden)`r`nok") { "FAIL said:`n$out"; exit 1 }
+# a said line the console wrapped at a space (12-cell rows here) stays one line, so its end is hidden too
+$con = $ast.Find({ param($n) $n -is [Management.Automation.Language.CommandAst] -and $n.Extent.Text -match '^Add-Type -Name Con ' }, $true)
+Add-Type -Name Con -Namespace T -MemberDefinition ($con.CommandElements | Where-Object { $_.StringConstantType -eq "SingleQuotedHereString" }).Value
+$rows = [Collections.Generic.List[string]]@("Transcribe: ", "secret word ", "here        ", "a status of ", "Transcribe: ", "more        ")
+$out = Hide-Said ([T.Con]::Join($rows))
+if ($out -ne "Transcribe: (text hidden)`r`na status of Transcribe: (text hidden)") { "FAIL wrapped:`n$out"; exit 1 }
 "log ok"

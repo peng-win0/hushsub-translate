@@ -28,7 +28,7 @@ struct Info { public short W, H, X, Y, Attr, L, T, R, B, MaxW, MaxH; }
 static string text, seen;
 static int same;
 // The console's last 1000 rows up to the cursor; null without a console. Row by row: a wide (CJK) character
-// fills two cells but reads as one character. A row that ends in text was wrapped by the console: joined to the next.
+// fills two cells but reads as one character.
 // Reading every row takes ~35 ms, so while the cursor and the last two rows are unchanged the last text is reused
 // (read again every 5th time anyway: once the console is full, an exact repeat of the last line changes neither).
 public static string Text() {
@@ -38,14 +38,23 @@ public static string Text() {
     string now = i.X + "," + i.Y + "\n" + Row(h, s, i.W, i.Y - 1) + "\n" + Row(h, s, i.W, i.Y);
     if (text != null && now == seen && ++same < 5) return text;
     seen = now; same = 0;
-    var t = new System.Text.StringBuilder();
+    var rows = new System.Collections.Generic.List<string>();
     for (int y = System.Math.Max(0, i.Y - 999); y <= i.Y; y++) {
         string row = Row(h, s, i.W, y);
-        if (row == null) continue;
-        t.Append(row.TrimEnd());
-        if (row.Length == 0 || row[row.Length - 1] == ' ' || y == i.Y) t.Append("\r\n");
+        if (row != null) rows.Add(row);
     }
-    return text = t.ToString().TrimEnd();
+    return text = Join(rows);
+}
+// A row that ends in text, or in one or two blank cells (wrapped at a space, or before a wide character that didn't
+// fit), was wrapped by the console: joined to the next, so a said line that wraps stays one line for Hide-Said. A line
+// that really ends there is joined too; Hide-Said finds the engine's prefix anywhere in a line.
+public static string Join(System.Collections.Generic.List<string> rows) {
+    var t = new System.Text.StringBuilder();
+    foreach (string row in rows) {
+        string r = row.TrimEnd(); int pad = row.Length - r.Length;
+        t.Append(r).Append(row.Length == 0 || pad > 2 ? "\r\n" : pad > 0 ? " " : "");
+    }
+    return t.ToString().TrimEnd();
 }
 static string Row(IntPtr h, System.Text.StringBuilder s, int w, int y) {
     int read; s.Length = 0;
@@ -94,7 +103,7 @@ $noise = '^(triton\\windows_utils\.py:\d+: UserWarning: Failed to find CUDA\.|\s
          'forrtl: error \(200\): program aborting due to window-CLOSE event|Image\s+PC\s+Routine\s+Line\s+Source|\S+\s+[0-9A-F]{16}\s+Unknown\s+Unknown\s+Unknown)$'
 # What was said stays in memory: the engine prints each line it hears, and the log (a file, and Show log's Copy) keeps
 # only that a line was heard
-function Hide-Said($t) { $t -replace '(?m)^(Transcribe(?: \(OSC\))?|skipping\.\.\. result):[^\r\n]*', '$1: (text hidden)' }
+function Hide-Said($t) { $t -replace '(Transcribe(?: \(OSC\))?|skipping\.\.\. result):[^\r\n]*', '$1: (text hidden)' }
 $script:logText = $null
 $script:readyLines = $null  # "now ready" lines in the console when the engine (re)started; $null: ready, or no engine yet
 function Save-Log {
