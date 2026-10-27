@@ -25,6 +25,9 @@ if ($out -ne "ready`r`nTranscribe: (text hidden)`r`nskipping... result: (text hi
 $con = $ast.Find({ param($n) $n -is [Management.Automation.Language.CommandAst] -and $n.Extent.Text -match '^Add-Type -Name Con ' }, $true)
 Add-Type -Name Con -Namespace T -MemberDefinition ($con.CommandElements | Where-Object { $_.StringConstantType -eq "SingleQuotedHereString" }).Value
 $rows = [Collections.Generic.List[string]]@("Transcribe: ", "secret word ", "here        ", "a status of ", "Transcribe: ", "more        ")
-$out = Hide-Said ([T.Con]::Join($rows))
+$out = Hide-Said ([T.Con]::Join($rows, $false))
 if ($out -ne "Transcribe: (text hidden)`r`na status of Transcribe: (text hidden)") { "FAIL wrapped:`n$out"; exit 1 }
+# the window starts inside a wrapped said line (its prefix scrolled above): that end is dropped, not shown
+$out = Hide-Said ([T.Con]::Join([Collections.Generic.List[string]]@("secret word ", "here        ", "ok          "), $true))
+if ($out -ne "ok") { "FAIL top:`n$out"; exit 1 }
 "log ok"

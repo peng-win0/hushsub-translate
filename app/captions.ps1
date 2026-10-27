@@ -39,22 +39,27 @@ public static string Text() {
     if (text != null && now == seen && ++same < 5) return text;
     seen = now; same = 0;
     var rows = new System.Collections.Generic.List<string>();
-    for (int y = System.Math.Max(0, i.Y - 999); y <= i.Y; y++) {
+    int top = System.Math.Max(0, i.Y - 1000);
+    for (int y = top; y <= i.Y; y++) {
         string row = Row(h, s, i.W, y);
         if (row != null) rows.Add(row);
     }
-    return text = Join(rows);
+    return text = Join(rows, top > 0 || i.Y == i.H - 1);  // above the first row (or scrolled off a full buffer): more
 }
 // A row that ends in text, or in one or two blank cells (wrapped at a space, or before a wide character that didn't
 // fit), was wrapped by the console: joined to the next, so a said line that wraps stays one line for Hide-Said. A line
-// that really ends there is joined too; Hide-Said finds the engine's prefix anywhere in a line.
-public static string Join(System.Collections.Generic.List<string> rows) {
+// that really ends there is joined too; Hide-Said finds the engine's prefix anywhere in a line. Blank cells are ' ' (not
+// the ideographic space a said line can end in). With more text above, the first line may be a said line's end
+// without its prefix: dropped.
+public static string Join(System.Collections.Generic.List<string> rows, bool more) {
     var t = new System.Text.StringBuilder();
     foreach (string row in rows) {
-        string r = row.TrimEnd(); int pad = row.Length - r.Length;
+        string r = row.TrimEnd(' '); int pad = row.Length - r.Length;
         t.Append(r).Append(row.Length == 0 || pad > 2 ? "\r\n" : pad > 0 ? " " : "");
     }
-    return t.ToString().TrimEnd();
+    string j = t.ToString();
+    if (more) { int n = j.IndexOf("\r\n"); j = n < 0 ? "" : j.Substring(n + 2); }
+    return j.TrimEnd();
 }
 static string Row(IntPtr h, System.Text.StringBuilder s, int w, int y) {
     int read; s.Length = 0;
