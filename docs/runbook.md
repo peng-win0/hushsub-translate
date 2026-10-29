@@ -20,7 +20,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File bench/test_zip.ps1
 ruff check Plugins bench
 ```
 
-CI pins ruff 0.17.2: without it installed, `uvx ruff@0.17.2 check Plugins bench` runs the same version (it downloads ruff the first time).
+CI pins ruff 0.17.3: without it installed, `uvx ruff@0.17.3 check Plugins bench` runs the same version (it downloads ruff the first time).
 Scripts must parse in Windows PowerShell 5.1 and be plain ASCII (CI checks both). The plugin runs on the engine's
 Python 3.11.
 

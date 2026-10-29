@@ -29,7 +29,7 @@ jobs:
           exit $bad
       - name: Lint (ruff.toml)
         run: |
-          python -m pip install --disable-pip-version-check ruff==0.17.2
+          python -m pip install --disable-pip-version-check ruff==0.17.3
           ruff check Plugins bench
       - run: python bench/test_captions.py
       - run: python bench/test_translator.py
