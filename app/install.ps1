@@ -46,6 +46,8 @@ if ($LASTEXITCODE -ne 0) { Expand-Archive -LiteralPath $zip -DestinationPath $tm
 $exe = Get-ChildItem -LiteralPath $tmp.FullName -Recurse -Filter "audioWhisper.exe" | Select-Object -First 1
 if (-not $exe) { throw "The download has no audioWhisper.exe; delete $zip and press Install again." }
 # Keep this app's own files (Plugins\, Profiles\, ...) where names clash.
+# audioWhisper\ last: its .exe is what counts as installed, so a move that fails before it (toolchain\ locked by
+# antivirus) runs again on the next Install instead of leaving the engine without ffmpeg
 Get-ChildItem -LiteralPath $exe.Directory.Parent.FullName -Force | Where-Object { -not (Test-Path -LiteralPath $_.Name) } |
-    Move-Item -Destination $top
+    Sort-Object { $_.Name -eq $exe.Directory.Name } | Move-Item -Destination $top
 Remove-Item -LiteralPath ".install", $zip, ".install-step" -Recurse -Force
