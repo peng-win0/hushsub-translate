@@ -74,10 +74,12 @@ try {
         if ($merge -contains $f -and (Test-Path -LiteralPath $f)) {
             # add lines whose word (left of " = ", or the whole line) the user's file doesn't have; skip comments
             $key = { param($l) ($l -split '=', 2)[0].Trim() }
-            $mine = [IO.File]::ReadAllLines((Resolve-Path -LiteralPath $f).Path)
+            $path = (Resolve-Path -LiteralPath $f).Path
+            # saved by hand as ANSI or Shift-JIS: read in the PC's code page, so the rewrite below (UTF-8) keeps its words
+            $mine = @(try { [IO.File]::ReadAllLines($path, (New-Object Text.UTF8Encoding $false, $true)) } catch [Text.DecoderFallbackException] { [IO.File]::ReadAllLines($path, [Text.Encoding]::Default) })
             $have = @{}; foreach ($l in $mine) { $have[(& $key $l)] = 1 }
             $new = @([IO.File]::ReadAllLines("$root\$f") | Where-Object { $_.Trim() -and -not $_.TrimStart().StartsWith("#") -and -not $have.ContainsKey((& $key $_)) })
-            if ($new) { [IO.File]::WriteAllLines((Resolve-Path -LiteralPath $f).Path, [string[]]($mine + $new)) }  # UTF-8 without BOM
+            if ($new) { [IO.File]::WriteAllLines($path, [string[]]($mine + $new)) }  # UTF-8 without BOM
         } else {
             if ($dir) { [void](New-Item -ItemType Directory -Force $dir) }
             Copy-Item -LiteralPath "$root\$f" -Destination $f -Force
