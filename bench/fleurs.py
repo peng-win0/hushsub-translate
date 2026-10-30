@@ -17,7 +17,7 @@ import urllib.request
 B = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(B, "out", "fleurs")
 FFMPEG = os.path.join(B, "..", "toolchain", "ffmpeg", "bin", "ffmpeg.exe")
-URL = "https://huggingface.co/datasets/google/fleurs/resolve/main/data/{}/"
+URL = "https://huggingface.co/datasets/google/fleurs/resolve/70bb2e84b976b7e960aa89f1c648e09c59f894dd/data/{}/"  # pinned: the same clips on every run, even if the tar.gz files are dropped from main
 # FLEURS config: Whisper code, NLLB code. The app's languages first (FLEURS has Mandarin in simplified only), then the
 # other languages MiLMMT-46 translates.
 LANGS = {
