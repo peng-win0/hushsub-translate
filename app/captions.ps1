@@ -40,9 +40,16 @@ public static string Text() {
     seen = now; same = 0;
     var rows = new System.Collections.Generic.List<string>();
     int top = System.Math.Max(0, i.Y - 1000);
-    for (int y = top; y <= i.Y; y++) {
-        string row = Row(h, s, i.W, y);
-        if (row != null) rows.Add(row);
+    // A full buffer scrolls under the read: each new line moves every row up, so a row would be skipped, maybe a said
+    // line's prefix row, and its rest shown unhidden. Read again then (the first two rows moved); else keep the last.
+    for (int tries = 0; ; tries++) {
+        rows.Clear();
+        for (int y = top; y <= i.Y; y++) {
+            string row = Row(h, s, i.W, y);
+            if (row != null) rows.Add(row);
+        }
+        if (i.Y < i.H - 1 || rows.Count < 2 || (Row(h, s, i.W, top) == rows[0] && Row(h, s, i.W, top + 1) == rows[1])) break;
+        if (tries == 2) { seen = null; return text ?? ""; }
     }
     return text = Join(rows, top > 0 || i.Y == i.H - 1);  // above the first row (or scrolled off a full buffer): more
 }
@@ -184,9 +191,24 @@ function Get-Model($m) {
     }
     Set-Content -LiteralPath ".captions-download" -Value $m.Label  # the app: checking and unpacking
     Save-Log
-    $ok = (& $size) -eq $m.Size -and (Get-FileHash -LiteralPath $zip).Hash -eq $m.Sha
-    if ($ok) { & "$env:SystemRoot\System32\tar.exe" -xf $zip -C $dir; $ok = [bool]($m.Done | Where-Object { Test-Path -LiteralPath ".cache\$_" }) }
-    if ($ok -or (& $size) -ge $m.Size) { Remove-Item -LiteralPath $zip -ErrorAction SilentlyContinue }  # done, or damaged
+    $good = $ok = (& $size) -eq $m.Size -and (Get-FileHash -LiteralPath $zip).Hash -eq $m.Sha
+    if ($ok) {
+        # unpacked beside, then moved in: an unpack cut short (Stop, the window closed, a full disk) leaves no model
+        # file that counts as there, so the next Start unpacks again instead of running a broken model
+        $tmp = "$dir\.unpack"
+        Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+        $null = New-Item -ItemType Directory $tmp
+        & "$env:SystemRoot\System32\tar.exe" -xf $zip -C $tmp
+        if ($LASTEXITCODE -eq 0) {
+            foreach ($e in Get-ChildItem -LiteralPath $tmp -Force) {
+                Remove-Item -LiteralPath "$dir\$($e.Name)" -Recurse -Force -ErrorAction SilentlyContinue  # a cut one from before
+                Move-Item -LiteralPath $e.FullName -Destination $dir
+            }
+        }
+        Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+        $ok = [bool]($m.Done | Where-Object { Test-Path -LiteralPath ".cache\$_" })
+    }
+    if ($ok -or (-not $good -and (& $size) -ge $m.Size)) { Remove-Item -LiteralPath $zip -ErrorAction SilentlyContinue }  # done, or damaged (a good zip that did not unpack, disk full, stays for the next Start)
     Remove-Item -LiteralPath ".captions-download" -ErrorAction SilentlyContinue
     if (-not $ok) { Write-Host "Could not download the $($m.Label). Check your internet connection, then press Start to continue."; "Download failed" }
 }
