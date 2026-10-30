@@ -46,16 +46,16 @@ public static string Text() {
     }
     return text = Join(rows, top > 0 || i.Y == i.H - 1);  // above the first row (or scrolled off a full buffer): more
 }
-// A row that ends in text, or in one or two blank cells (wrapped at a space, or before a wide character that didn't
-// fit), was wrapped by the console: joined to the next, so a said line that wraps stays one line for Hide-Said. A line
-// that really ends there is joined too; Hide-Said finds the engine's prefix anywhere in a line. Blank cells are ' ' (not
-// the ideographic space a said line can end in). With more text above, the first line may be a said line's end
-// without its prefix: dropped.
+// A row that ends in text, or in up to 32 blank cells (wrapped at spaces, or before a wide character that didn't fit),
+// was wrapped by the console: joined to the next, so a said line that wraps stays one line for Hide-Said. A line that
+// really ends that near the right edge is joined too: Hide-Said finds the engine's prefix anywhere in a line, so at
+// worst more is hidden. Blank cells are ' ' (not the ideographic space a said line can end in). With more text above,
+// the first line may be a said line's end without its prefix: dropped.
 public static string Join(System.Collections.Generic.List<string> rows, bool more) {
     var t = new System.Text.StringBuilder();
     foreach (string row in rows) {
         string r = row.TrimEnd(' '); int pad = row.Length - r.Length;
-        t.Append(r).Append(row.Length == 0 || pad > 2 ? "\r\n" : pad > 0 ? " " : "");
+        t.Append(r).Append(row.Length == 0 || pad > 32 ?"\r\n" : pad > 0 ? " " : "");
     }
     string j = t.ToString();
     if (more) { int n = j.IndexOf("\r\n"); j = n < 0 ? "" : j.Substring(n + 2); }

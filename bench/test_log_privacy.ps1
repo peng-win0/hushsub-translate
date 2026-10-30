@@ -21,13 +21,15 @@ $ast = [Management.Automation.Language.Parser]::ParseFile("$PSScriptRoot\..\app\
 Invoke-Expression $ast.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq "Hide-Said" }, $true).Extent.Text
 $out = Hide-Said "ready`r`nTranscribe: secret words`r`nskipping... result:  {'text': 'secret'}`r`nTranscribe (OSC): secret`r`nTranscribe: `r`nok"
 if ($out -ne "ready`r`nTranscribe: (text hidden)`r`nskipping... result: (text hidden)`r`nTranscribe (OSC): (text hidden)`r`nTranscribe: (text hidden)`r`nok") { "FAIL said:`n$out"; exit 1 }
-# a said line the console wrapped at a space (12-cell rows here) stays one line, so its end is hidden too
+# a said line the console wrapped at one space or at several stays one line, so its end is hidden too; a row with
+# 40 blank cells after its text is a real line end
 $con = $ast.Find({ param($n) $n -is [Management.Automation.Language.CommandAst] -and $n.Extent.Text -match '^Add-Type -Name Con ' }, $true)
 Add-Type -Name Con -Namespace T -MemberDefinition ($con.CommandElements | Where-Object { $_.StringConstantType -eq "SingleQuotedHereString" }).Value
-$rows = [Collections.Generic.List[string]]@("Transcribe: ", "secret word ", "here        ", "a status of ", "Transcribe: ", "more        ")
+$end = " " * 40
+$rows = [Collections.Generic.List[string]]@("Transcribe: ", "secret word   ", "here$end", "a status of ", "Transcribe: ", "more$end")
 $out = Hide-Said ([T.Con]::Join($rows, $false))
 if ($out -ne "Transcribe: (text hidden)`r`na status of Transcribe: (text hidden)") { "FAIL wrapped:`n$out"; exit 1 }
 # the window starts inside a wrapped said line (its prefix scrolled above): that end is dropped, not shown
-$out = Hide-Said ([T.Con]::Join([Collections.Generic.List[string]]@("secret word ", "here        ", "ok          "), $true))
+$out = Hide-Said ([T.Con]::Join([Collections.Generic.List[string]]@("secret word ", "here$end", "ok$end"), $true))
 if ($out -ne "ok") { "FAIL top:`n$out"; exit 1 }
 "log ok"
