@@ -1,0 +1,40 @@
+# whisper.cpp with Vulkan for Windows x64 (its releases have no Vulkan build), to measure it on AMD and Intel
+# graphics. The Vulkan SDK is needed only to build; running needs only the graphics driver.
+name: whisper.cpp Vulkan build
+on:
+  push:
+    branches: [bench/whisper-vulkan]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 60
+    env:
+      WHISPER_SHA: d1be6fde11ac6e0407606b4e42fe72d34add8037  # v1.9.5
+      VULKAN_VERSION: 1.4.357.0  # as llama.cpp's Windows Vulkan release
+    steps:
+      - name: Source
+        run: |
+          git clone --filter=blob:none https://github.com/ggml-org/whisper.cpp src
+          git -C src checkout $env:WHISPER_SHA
+          if ((git -C src rev-parse HEAD) -ne $env:WHISPER_SHA) { throw "wrong commit" }
+      - name: Vulkan SDK
+        run: |
+          curl.exe -fsSL -o $env:RUNNER_TEMP/VulkanSDK-Installer.exe "https://sdk.lunarg.com/sdk/download/$env:VULKAN_VERSION/windows/vulkansdk-windows-X64-$env:VULKAN_VERSION.exe"
+          & "$env:RUNNER_TEMP\VulkanSDK-Installer.exe" --accept-licenses --default-answer --confirm-command install | Out-Null
+          Add-Content $env:GITHUB_ENV "VULKAN_SDK=C:\VulkanSDK\$env:VULKAN_VERSION"
+          Add-Content $env:GITHUB_PATH "C:\VulkanSDK\$env:VULKAN_VERSION\bin"
+      - name: Build
+        run: |
+          cmake -S src -B build -DGGML_VULKAN=ON -DGGML_NATIVE=OFF -DBUILD_SHARED_LIBS=ON -DWHISPER_BUILD_TESTS=OFF -DWHISPER_SDL2=OFF
+          cmake --build build --config Release -j 4
+          if ($LASTEXITCODE) { throw "build failed" }
+          Get-ChildItem build\bin\Release | Format-Table Name, Length -AutoSize | Out-String -Width 200
+          Get-FileHash build\bin\Release\* | ForEach-Object { "$($_.Hash)  $(Split-Path -Leaf $_.Path)" } | Set-Content build\bin\Release\SHA256SUMS.txt
+          Get-Content build\bin\Release\SHA256SUMS.txt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: whisper-vulkan-x64
+          path: build/bin/Release/
+          retention-days: 7
