@@ -13,7 +13,7 @@ foreach ($installed in $false, $true) {
     Copy-Item -LiteralPath "$app\app\icon.ico" "$root\app.ico"  # left by 1.5.1 or older
     # an older updater installed app\ over 1.5.2: the old files stay, the users words are at the top
     Copy-Item -LiteralPath "$app\app\captions.ps1", "$app\app\Profiles", "$app\app\fonts" -Destination $root -Recurse
-    [IO.File]::WriteAllLines("$root\glossary.txt", [string[]]"Mine = Mine")
+    [IO.File]::WriteAllLines("$root\glossary.txt", [string[]]"Mine = Mine$([char]0xE9)", [Text.Encoding]::Default)  # saved as ANSI
     $null = New-Item -ItemType Directory "$root\.update-backup"; Set-Content -LiteralPath "$root\.update-done" -Value "9.9.9"  # an older updater just ran
     Set-Content -LiteralPath "$root\app-settings.json" -Value '{"autoUpdate": false}'  # no update check from the copy
     $s = [IO.File]::ReadAllText("$app\CaptionsApp.ps1")
@@ -33,7 +33,8 @@ $win.FindName("AppTabButton").IsChecked = $true; $win.FindName("CaptionTabButton
 $wordsBox.Text += "`r`nx = y"; if (((Word-Lines $wordsBox.Text) -join "`n") -eq $script:savedWords) { throw "unsaved words not noticed" }
 try { ([IO.File]::Open("$PSScriptRoot\app\icon.ico", "Open", "ReadWrite", "Read")).Close() } catch { throw "the open window locks icon.ico: updates would fail" }
 if (@(Test-Path -LiteralPath "$PSScriptRoot\app.ico","$PSScriptRoot\captions.ps1", "$PSScriptRoot\Profiles", "$PSScriptRoot\fonts", "$PSScriptRoot\glossary.txt") -contains $true) { throw "an old file stayed at the top" }
-if ("$(Get-Content -LiteralPath "$PSScriptRoot\app\glossary.txt")" -ne "Mine = Mine") { throw "the users words didnt move into app" }
+if ("$(Get-Content -LiteralPath "$PSScriptRoot\app\glossary.txt" -Encoding Default)" -ne "Mine = Mine$([char]0xE9)") { throw "the users words didnt move into app" }
+if (($wordsBox.Text -split "`r`n")[0] -ne "Mine = Mine$([char]0xE9)") { throw "an ANSI glossary read as: $($wordsBox.Text)" }
 Set-Content "$PSScriptRoot\ok.txt" "ok"
 '@))
     if ($installed) { $patches += , @('function Engine-Installed { Test-Path -LiteralPath "audioWhisper\audioWhisper.exe" }', 'function Engine-Installed { $true }') }

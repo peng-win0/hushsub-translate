@@ -216,7 +216,7 @@ function Start-Update($apply) {
         -ArgumentList ("-NoProfile -ExecutionPolicy Bypass -File `"$PSScriptRoot\app\update.ps1`"" + $(if ($apply) { " -Apply" }))
 }
 
-function Start-Captions($m, [switch]$Paused) {
+function Start-Captions($m) {
     $script:running = $m
     $script:full = 0  # a count left from the last run must not cut this one's three checks short
     Save-Settings
@@ -232,16 +232,16 @@ function Start-Captions($m, [switch]$Paused) {
         -replace '^current_language: .*', "current_language: $($from[0])" -replace '^src_lang: .*', "src_lang: $($from[1])" -replace '^trg_lang: .*', "trg_lang: $($to[1])"
     [IO.File]::WriteAllLines($yamlPath, [string[]]$yaml)  # UTF-8 without BOM
     Remove-Item -LiteralPath ".captions-window", ".captions-stats", ".captions-failed", ".captions-log", ".captions-download", ".captions-ready", ".captions-restart" -ErrorAction SilentlyContinue
-    if ($Paused) { Pause-Captions } else { Remove-Item -LiteralPath ".captions-paused" -ErrorAction SilentlyContinue }
+    Remove-Item -LiteralPath ".captions-paused" -ErrorAction SilentlyContinue
     $ps = "powershell -NoLogo -NoProfile -NoExit -ExecutionPolicy Bypass -File `"$PSScriptRoot\app\captions.ps1`"" +
           " -ProfilePath `"app\Profiles\$($modes[$m].Profile).yaml`" -App $script:app -Title `"Hushsub Translate - $m (close to stop)`""
     # conhost: a classic console window we can hide, show and close gracefully (a Windows Terminal tab can't)
     $script:conhost = Start-Process conhost.exe -ArgumentList $ps -WindowStyle Hidden -PassThru
 }
 
-function Start-Best([switch]$Paused) {
+function Start-Best {
     $gpu = Get-Gpu
-    Start-Captions (Pick-Mode $script:budget $(if (-not (Gpu-Problem $gpu)) { $gpu })) -Paused:$Paused
+    Start-Captions (Pick-Mode $script:budget $(if (-not (Gpu-Problem $gpu)) { $gpu }))
 }
 
 function Pause-Captions {
@@ -994,7 +994,13 @@ $showOriginal.IsChecked = [bool]($saved -and $saved.showOriginal)  # off unless 
 $showOriginal.Add_Click({ Save-Settings })
 # Your words = glossary.txt without its # help lines (kept on Save). The plugin re-reads it on the next line.
 $wordsBox = $win.FindName("Words"); $wordsNote = $win.FindName("WordsNote")
-function Read-Words { @(Get-Content -LiteralPath "app\glossary.txt" -Encoding UTF8 -ErrorAction SilentlyContinue) }
+function Read-Words {
+    $t = @(Get-Content -LiteralPath "app\glossary.txt" -Encoding UTF8 -ErrorAction SilentlyContinue)
+    # saved by hand as ANSI or Shift-JIS: read in the PC's code page, so the next save (an update saves too) converts
+    # it to UTF-8 instead of turning its words into U+FFFD for good
+    if (($t -join "").Contains([char]0xFFFD)) { $t = @(Get-Content -LiteralPath "app\glossary.txt" -Encoding Default -ErrorAction SilentlyContinue) }
+    $t
+}
 $wordsBox.Text = @(Read-Words | Where-Object { $_.Trim() -and -not $_.TrimStart().StartsWith("#") }) -join "`r`n"
 function Word-Lines([string]$text) { @($text -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
 $script:savedWords = (Word-Lines $wordsBox.Text) -join "`n"  # closing the window asks before losing edits to it
@@ -1559,7 +1565,9 @@ $tick = {
     # updates: checked daily; with auto-update on, a newer version installs once captions are off
     $latest = "$(Get-Content -LiteralPath '.update-latest' -ErrorAction SilentlyContinue)".Trim()
     $newer = $latest -and $(try { [version]$latest -gt [version]$version } catch { $false })
-    # a paused engine keeps the GPU awake (no sleep, battery): it closes after a minute off, or for an update
+    # a paused engine keeps the GPU awake (no sleep, battery): it closes after a minute off, or for an update. Not
+    # while it still loads: the first start converts its model for minutes, and closing would throw that away
+    if ($paused -and -not (Test-Path -LiteralPath ".captions-ready")) { $script:pausedAt = [DateTime]::Now }
     if ($paused -and -not $script:stopping -and ($newer -or ([DateTime]::Now - $script:pausedAt).TotalMinutes -ge 1)) { Stop-Captions }
     $busy = $open -or $engine -or $installing
     if ($autoUpdate.IsChecked -and ++$script:updateTicks % 86400 -eq 0) { Start-Update $false }
