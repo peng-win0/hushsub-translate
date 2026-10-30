@@ -231,7 +231,7 @@ function Start-Captions($m) {
     $yaml = (Get-Content -LiteralPath $yamlPath -Encoding UTF8) -replace '^realtime: .*', "realtime: $("$([bool]$live.IsChecked)".ToLower())" `
         -replace '^current_language: .*', "current_language: $($from[0])" -replace '^src_lang: .*', "src_lang: $($from[1])" -replace '^trg_lang: .*', "trg_lang: $($to[1])"
     [IO.File]::WriteAllLines($yamlPath, [string[]]$yaml)  # UTF-8 without BOM
-    Remove-Item -LiteralPath ".captions-window", ".captions-stats", ".captions-failed", ".captions-log", ".captions-download", ".captions-ready", ".captions-restart" -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath ".captions-window", ".captions-stats", ".captions-failed", ".captions-log", ".captions-download", ".captions-ready", ".captions-restart", ".captions-mic-blocked" -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath ".captions-paused" -ErrorAction SilentlyContinue
     $ps = "powershell -NoLogo -NoProfile -NoExit -ExecutionPolicy Bypass -File `"$PSScriptRoot\app\captions.ps1`"" +
           " -ProfilePath `"app\Profiles\$($modes[$m].Profile).yaml`" -App $script:app -Title `"Hushsub Translate - $m (close to stop)`""
@@ -1555,6 +1555,8 @@ $tick = {
         elseif ($open -and $engine) { "On", "On: $script:running", "Captions appear when someone speaks." }
         elseif ($failed) { "Bad", ("$(Get-Content -LiteralPath '.captions-failed' -ErrorAction SilentlyContinue)" -replace '^1?$', "The engine keeps crashing"), "See the log below. Press Stop, then Start." }
         elseif ($open -and $pick -eq "system") { "Busy", "Waiting for speakers", "Captions begin once Windows has speakers or headphones." }
+        elseif ($open -and $pick -eq "mic" -and (Test-Path -LiteralPath ".captions-mic-blocked")) {
+            "Bad", "Windows blocks the microphone", "In Settings > Privacy & security > Microphone, turn on Microphone access and Let desktop apps access your microphone. Captions begin then." }
         elseif ($open -and $pick -eq "mic") { "Busy", "Waiting for a microphone", "Captions begin once Windows has a microphone." }
         elseif ($open) { "Busy", "Waiting for $name", "Captions begin once $name is open." }
         elseif ($engine) { "On", "On", "Another caption engine is running: close it to stop." }

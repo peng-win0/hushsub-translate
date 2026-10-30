@@ -258,6 +258,16 @@ function Write-Profile($path, $process, $device, $limit, $threads) {
     [IO.File]::WriteAllLines($path, [string[]]$yaml)  # UTF-8 without BOM
 }
 
+# Windows' switches in Settings > Privacy & security > Microphone. With one off, the engine can't open any microphone
+# (PortAudio: "Invalid device") and crashes at each start; speakers' loopback isn't covered by them.
+function Mic-Blocked {
+    $k = "Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone"
+    foreach ($p in "HKLM:\$k", "HKCU:\$k", "HKCU:\$k\NonPackaged") {  # the PC's, the user's, desktop apps'
+        if ("$((Get-ItemProperty -LiteralPath $p -Name Value -ErrorAction SilentlyContinue).Value)" -eq "Deny") { return $true }
+    }
+    $false
+}
+
 $quickCrashes = 0
 while (-not $downloadFailed) {
     if ($App -in "system", "mic") {
@@ -265,6 +275,12 @@ while (-not $downloadFailed) {
         if (-not ($speakers = [W.Speakers]::Name($flow))) {
             Write-Host "Waiting for $(('speakers or headphones', 'a microphone')[$flow]) (captions begin automatically)..."
             while (-not ($speakers = [W.Speakers]::Name($flow))) { Save-Log; Start-Sleep -Seconds 2 }
+        }
+        if ($flow -and (Mic-Blocked)) {
+            Write-Host "Windows blocks desktop apps from the microphone: turn on Microphone access and Let desktop apps access your microphone in Settings > Privacy & security > Microphone (captions begin automatically)..."
+            Set-Content -LiteralPath ".captions-mic-blocked" -Value "1"  # the app says which switch
+            while (Mic-Blocked) { Save-Log; Start-Sleep -Seconds 2 }
+            Remove-Item -LiteralPath ".captions-mic-blocked" -ErrorAction SilentlyContinue
         }
         Write-Host "Listening to $(('all sound on', 'the microphone')[$flow]): $speakers"
         $process, $device = "", "$speakers$((' [Loopback]', '')[$flow])"

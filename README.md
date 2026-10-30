@@ -77,6 +77,8 @@ Measured on an RTX 4060 Laptop. NLLB is licensed for non-commercial use only: fo
 ## Troubleshooting
 
 - **No captions:** make sure the sound plays in what **Listen to** picks, or pick **All PC sound**, then click **Show log**.
+- **Microphone: "Windows blocks the microphone":** in Windows Settings > Privacy & security > Microphone, turn on
+  **Microphone access** and **Let desktop apps access your microphone**. Captions begin then.
 - **CPU mode on an NVIDIA card:** other apps hold the graphics memory. Close them, then Stop and Start.
 - **A download failed:** press **Start** or **Resume** again; it continues where it stopped. If a DNS filter blocks
   it (Cloudflare WARP for Families, NextDNS, Pi-hole), allow `contabostorage.com` until the install finishes.

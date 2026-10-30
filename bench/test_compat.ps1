@@ -88,3 +88,14 @@ if ($after[1] -cne "audio_input_device: ''" -or $after[2] -cne "audio_input_proc
 }
 Remove-Item -LiteralPath $yaml
 "profile ok"
+
+# captions.ps1 waits, and the app says why, when Windows' privacy switches keep desktop apps off the microphone (the
+# engine crashed at each start): any of the three set to Deny blocks it
+$fn = $cap.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq "Mic-Blocked" }, $true)
+Invoke-Expression $fn.Extent.Text
+function Get-ItemProperty($LiteralPath) { if ($script:deny -and $LiteralPath -like $script:deny) { [pscustomobject]@{ Value = "Deny" } } else { [pscustomobject]@{ Value = "Allow" } } }
+foreach ($case in @($null, $false), @("HKLM:*microphone", $true), @("HKCU:*microphone", $true), @("*\NonPackaged", $true)) {
+    $script:deny = $case[0]
+    if ((Mic-Blocked) -ne $case[1]) { Fail "microphone blocked by $($case[0]): $(Mic-Blocked)" }
+}
+"microphone switches ok"
