@@ -37,6 +37,9 @@ for raw, want in {"それでは、ご視聴ありがとうございました。"
                   "それでは始めます": "それでは始めます"}.items():
     assert sdp.strip_outro(raw) == want, (raw, sdp.strip_outro(raw))
 print("outro ok")
+assert sdp.sound_tag("8888") == sdp.sound_tag("（拍手）") == "[applause]"
+t = time.time()
+assert sdp.sound_tag("8" * 60 + "。") is None and time.time() - t < 1  # took minutes when a long run of 8s didn't match
 for line in ("Thank you for watching this video!", "  THANKS for watching this video", "ご視聴ありがとうございました。", "You."):
     assert sdp.is_fake(line), line                             # fake-lines.txt: any case, spacing or punctuation
 for line in ("Subtítulos realizados por la comunidad de Amara.org", "Субтитры сделал DimaTorzok",
@@ -158,6 +161,7 @@ osc["audio_input_process"] = "chrome.exe"; final("From a video.")  # Listen to c
 osc["audio_input_process"], osc["audio_input_device"] = "", "Speakers (Realtek) [Loopback]"; final("All PC sound.")
 osc["audio_input_device"] = "Microphone (USB)"; final("Into the mic.")
 p._chat("[music]")  # a sound tag: shown in the captions, never sent
+p.cc_paused = True; p._chat("Said before Stop."); p.cc_paused = False  # finished after Stop: not sent either
 got = []
 rx.settimeout(0.3)
 try:

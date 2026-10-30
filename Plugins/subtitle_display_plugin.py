@@ -296,7 +296,9 @@ _FILLER = re.compile(
 _SOUND_TAGS = [
     (re.compile(r"^[\s(（【\[]*(?:爆?笑|[あア]?(?:は|ハ){2,}|(?:ふ|フ){2,}|[wｗ]{3,})[\s)）】\]!！?？…。、ー〜]*$"), "[laughs]"),
     (re.compile(r"^[\s(（【\[]*(?:♪|♫|🎵|音楽|BGM|〜|~)+[\s)）】\]]*$"), "[music]"),
-    (re.compile(r"^[\s(（【\[]*(?:拍手|8{3,}|８{3,})+[\s)）】\]!！]*$"), "[applause]"),  # 8888 = パチパチ
+    # 8888 = パチパチ. {3,}+ is possessive: plain {3,} inside (...)+ splits a long run of 8s every possible way
+    # before failing ("888...8。"), and freezes the engine for minutes
+    (re.compile(r"^[\s(（【\[]*(?:拍手|8{3,}+|８{3,}+)+[\s)）】\]!！]*$"), "[applause]"),
 ]
 _TAGS = {tag for _, tag in _SOUND_TAGS}
 
@@ -1407,6 +1409,8 @@ class SubtitleDisplayPlugin(Plugins.Base):
         the chatbox's 144 characters and keeps messages 1.5 s apart. Send-only, nothing listens."""
         if not self.chatbox or not text or text in _TAGS:  # a sound ([music] in the world) isn't something said
             return
+        if getattr(self, "cc_paused", False):  # a line finished after Stop, from sound heard before it: not shown
+            return
         if seq is not None:
             if seq < self._chat_seq:  # ponytail: a line that finished after a newer one is skipped, not reordered
                 return  # (the chatbox shows one message: an older one last would hide the newest)
@@ -1449,7 +1453,8 @@ class SubtitleDisplayPlugin(Plugins.Base):
         if is_final and self._display_lock is not None:
             with self._display_lock:
                 self._final_cut = self._seq  # drafts still being translated are outdated now
-        translated_text = tag or collapse_repeats(self._select_display_text(pipeline_text, result_obj))
+        # the line as said, without the made-up outro (when nothing is translated, it's what is shown)
+        translated_text = tag or collapse_repeats(self._select_display_text(pipeline_text, dict(result_obj, text=source_text)))
         if is_final and self.transcriptions and self.transcriptions[-1] == translated_text:
             # Same line again (e.g. a looping segment): just clear the live line, don't stack a duplicate.
             self.current_intermediate_transcription = None
