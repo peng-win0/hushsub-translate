@@ -33,7 +33,7 @@ $win.FindName("AppTabButton").IsChecked = $true; $win.FindName("CaptionTabButton
 $wordsBox.Text += "`r`nx = y"; if (((Word-Lines $wordsBox.Text) -join "`n") -eq $script:savedWords) { throw "unsaved words not noticed" }
 try { ([IO.File]::Open("$PSScriptRoot\app\icon.ico", "Open", "ReadWrite", "Read")).Close() } catch { throw "the open window locks icon.ico: updates would fail" }
 if (@(Test-Path -LiteralPath "$PSScriptRoot\app.ico","$PSScriptRoot\captions.ps1", "$PSScriptRoot\Profiles", "$PSScriptRoot\fonts", "$PSScriptRoot\glossary.txt") -contains $true) { throw "an old file stayed at the top" }
-if ("$(Get-Content -LiteralPath "$PSScriptRoot\app\glossary.txt" -Encoding Default)" -ne "Mine = Mine$([char]0xE9)") { throw "the users words didnt move into app" }
+if ("$(Get-Content -LiteralPath "$PSScriptRoot\app\glossary.txt" -Encoding UTF8)" -ne "Mine = Mine$([char]0xE9)") { throw "the users ANSI words didnt move into app as UTF-8" }
 if (($wordsBox.Text -split "`r`n")[0] -ne "Mine = Mine$([char]0xE9)") { throw "an ANSI glossary read as: $($wordsBox.Text)" }
 Set-Content "$PSScriptRoot\ok.txt" "ok"
 '@))

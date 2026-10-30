@@ -995,19 +995,23 @@ $showOriginal.Add_Click({ Save-Settings })
 # Your words = glossary.txt without its # help lines (kept on Save). The plugin re-reads it on the next line.
 $wordsBox = $win.FindName("Words"); $wordsNote = $win.FindName("WordsNote")
 function Read-Words {
-    $t = @(Get-Content -LiteralPath "app\glossary.txt" -Encoding UTF8 -ErrorAction SilentlyContinue)
-    # saved by hand as ANSI or Shift-JIS: read in the PC's code page, so the next save (an update saves too) converts
-    # it to UTF-8 instead of turning its words into U+FFFD for good
-    if (($t -join "").Contains([char]0xFFFD)) { $t = @(Get-Content -LiteralPath "app\glossary.txt" -Encoding Default -ErrorAction SilentlyContinue) }
-    $t
+    $f = "$PSScriptRoot\app\glossary.txt"
+    try { [IO.File]::ReadAllLines($f, (New-Object Text.UTF8Encoding $false, $true)) }  # throws on bytes that aren't UTF-8
+    catch [Text.DecoderFallbackException] {
+        # saved by hand as ANSI or Shift-JIS (the plugin skips it then): read in the PC's code page and saved as UTF-8
+        # at once, so the plugin uses it and no later save turns its words into U+FFFD
+        $t = [IO.File]::ReadAllLines($f, [Text.Encoding]::Default)
+        try { [IO.File]::WriteAllLines($f, $t) } catch {}
+        $t
+    } catch {}  # none yet, or locked
 }
 $wordsBox.Text = @(Read-Words | Where-Object { $_.Trim() -and -not $_.TrimStart().StartsWith("#") }) -join "`r`n"
 function Word-Lines([string]$text) { @($text -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
 $script:savedWords = (Word-Lines $wordsBox.Text) -join "`n"  # closing the window asks before losing edits to it
-function Save-Words([string]$text) {
+function Save-Words([string]$text, [switch]$Force) {
     $lines = @(Word-Lines $text)
     $bad = @($lines | Where-Object { -not $_.StartsWith("#") -and $_ -notmatch '^[^=]*\S[^=]*=' })
-    if ($bad) { $wordsNote.Text = "Needs heard = shown: $($bad[0])"; return }
+    if ($bad -and -not $Force) { $wordsNote.Text = "Needs heard = shown: $($bad[0])"; return }
     $help = @(Read-Words | Where-Object { $_.TrimStart().StartsWith("#") })
     [IO.File]::WriteAllLines("$PSScriptRoot\app\glossary.txt", [string[]]($help + $lines))  # UTF-8 without BOM
     $wordsNote.Text = if ($lines) { "Saved." } else { "All deleted." }
@@ -1347,8 +1351,8 @@ Fill-Table $win.FindName("LicenseRows") @(
     , @("ffmpeg (from the engine)", "All modes", "GPLv3: obligations apply only when redistributing")
     , @("Google Sans Flex", "The app's font", "SIL Open Font License")) -head
 function Current-Mode {
-    # the mode captions run in, else the one Start would pick
-    if ($script:running) { return $script:running }
+    # the mode captions run in, else the one Start would pick ($script:running stays the last one that ran)
+    if ($script:running -and ((Ours-Open) -or (Engine-Running))) { return $script:running }
     if ($script:budget -eq "Auto") { Pick-Mode "Auto" $gpu } else { Pick-Mode $script:budget $whole }
 }
 function Show-About {
@@ -1466,9 +1470,14 @@ $tick = {
     $updating = $script:updater -and -not $script:updater.HasExited
     if ($script:updater -and -not $updating -and (Test-Path -LiteralPath ".update-done")) {
         # a new version is installed: reopen this window from the new files (it shows "Updated to ...")
+        $script:updater = $null  # once: if anything below fails, not a new window every second
+        # unsaved words are saved first, as they are, even a line still missing its "=" (the plugin skips it, the box
+        # shows it again): no question, nobody may be there. Unedited, the file stays as it is: it may have been edited
+        # in Notepad, or the update added lines to it
+        if (((Word-Lines $wordsBox.Text) -join "`n") -ne $script:savedWords) { try { Save-Words $wordsBox.Text -Force } catch { Note-Error $_ } }
+        $script:savedWords = (Word-Lines $wordsBox.Text) -join "`n"
         if (Test-Path -LiteralPath $exePath) { Start-Process -FilePath $exePath }
-        else { Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSScriptRoot\CaptionsApp.ps1`"" }
-        Save-Words $wordsBox.Text; $script:savedWords = (Word-Lines $wordsBox.Text) -join "`n"  # no question: nobody may be there
+        else { Start-Process "$env:WINDIR\System32\conhost.exe" -ArgumentList "--headless `"$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe`" -NoProfile -ExecutionPolicy Bypass -File `"$PSScriptRoot\CaptionsApp.ps1`"" }  # as the shortcut: no PowerShell window
         $win.Close()
         return
     }
