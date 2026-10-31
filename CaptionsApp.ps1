@@ -88,6 +88,10 @@ $languages = [ordered]@{
     French = "fr", "fra_Latn"; Portuguese = "pt", "por_Latn"; Russian = "ru", "rus_Cyrl"; Indonesian = "id", "ind_Latn"
     German = "de", "deu_Latn"; Japanese = "ja", "jpn_Jpan"; Vietnamese = "vi", "vie_Latn"; Turkish = "tr", "tur_Latn"
     Korean = "ko", "kor_Hang"; Italian = "it", "ita_Latn"; Polish = "pl", "pol_Latn"; Dutch = "nl", "nld_Latn"
+    Azerbaijani = "az", "azj_Latn"; Bulgarian = "bg", "bul_Cyrl"; Catalan = "ca", "cat_Latn"; Croatian = "hr", "hrv_Latn"
+    Danish = "da", "dan_Latn"; Finnish = "fi", "fin_Latn"; Hebrew = "he", "heb_Hebr"; Hungarian = "hu", "hun_Latn"
+    Kazakh = "kk", "kaz_Cyrl"; Norwegian = "no", "nob_Latn"; Slovak = "sk", "slk_Latn"; Slovenian = "sl", "slv_Latn"
+    Swedish = "sv", "swe_Latn"; Tagalog = "tl", "tgl_Latn"
 }
 # Caption style: YouTube's caption options and choices, same names. Saved in app-settings.json; the caption window
 # (the plugin) applies changes live. Colors and fonts are the same in the plugin.
@@ -228,8 +232,9 @@ function Start-Captions($m) {
     $script:app = Resolve-Browser
     $script:startKey = Start-Key $script:app
     $yamlPath = "$PSScriptRoot\app\Profiles\$($modes[$m].Profile).yaml"
+    # the language code quoted: YAML reads a bare no (Norwegian) as false
     $yaml = (Get-Content -LiteralPath $yamlPath -Encoding UTF8) -replace '^realtime: .*', "realtime: $("$([bool]$live.IsChecked)".ToLower())" `
-        -replace '^current_language: .*', "current_language: $($from[0])" -replace '^src_lang: .*', "src_lang: $($from[1])" -replace '^trg_lang: .*', "trg_lang: $($to[1])"
+        -replace '^current_language: .*', "current_language: '$($from[0])'" -replace '^src_lang: .*', "src_lang: $($from[1])" -replace '^trg_lang: .*', "trg_lang: $($to[1])"
     [IO.File]::WriteAllLines($yamlPath, [string[]]$yaml)  # UTF-8 without BOM
     Remove-Item -LiteralPath ".captions-window", ".captions-stats", ".captions-failed", ".captions-log", ".captions-download", ".captions-ready", ".captions-restart", ".captions-mic-blocked" -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath ".captions-paused" -ErrorAction SilentlyContinue
@@ -297,7 +302,8 @@ function Caption-Language {
     if ($script:captionLang -ne "Auto") { return $script:captionLang }
     $ui = [Globalization.CultureInfo]::CurrentUICulture
     if ($ui.Name -match '^zh-(Hant|TW|HK|MO)') { return "Chinese (Traditional)" }
-    $hit = @($languages.Keys | Where-Object { $languages[$_][0] -eq $ui.TwoLetterISOLanguageName })
+    $iso = switch ($ui.TwoLetterISOLanguageName) { { $_ -in "nb", "nn" } { "no" } "fil" { "tl" } default { $_ } }  # Whisper's codes
+    $hit = @($languages.Keys | Where-Object { $languages[$_][0] -eq $iso })
     if ($hit) { $hit[0] } else { "English" }
 }
 

@@ -84,7 +84,7 @@ def main():
         with open(base + ".ends.json", "w") as f:
             json.dump(ends, f)
         trg = "jpn_Jpan" if nllb == "eng_Latn" else "eng_Latn"
-        p = re.sub(r"(?m)^current_language: .*$", f"current_language: {code}", profile)
+        p = re.sub(r"(?m)^current_language: .*$", f"current_language: '{code}'", profile)
         p = re.sub(r"(?m)^src_lang: .*$", f"src_lang: {nllb}", p)
         p = re.sub(r"(?m)^trg_lang: .*$", f"trg_lang: {trg}", p)
         with open(os.path.join(OUT, f"lang_{code}.yaml"), "w", encoding="utf-8") as f:

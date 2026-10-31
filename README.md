@@ -6,7 +6,7 @@
 Streams, videos, meetings, games and VRChat. Free, offline, no account, no subscription.</p>
 
 Hushsub Translate listens to a browser or app, writes what is said, translates it, and shows it over the screen like
-YouTube's CC, live, in sixteen languages. It all runs on your own PC: no audio or text ever leaves it.
+YouTube's CC, live, in thirty languages. It all runs on your own PC: no audio or text ever leaves it.
 
 [![Download for Windows](https://img.shields.io/badge/Download-Windows%2010%2F11-2ea44f?style=for-the-badge&logo=windows)](https://github.com/peng-win0/hushsub-translate/archive/refs/heads/main.zip)
 
@@ -47,8 +47,9 @@ the ZIP, **Extract all**, and open `Hushsub Translate.bat` in the extracted fold
    is let go so it can sleep, and Start loads them again (a little slower).
 
 - **Languages:** English, Chinese (simplified or traditional), Spanish, French, Portuguese, Russian, Indonesian,
-  German, Japanese, Vietnamese, Turkish, Korean, Italian, Polish and Dutch, translated either way. Japanese → English
-  is the best tuned.
+  German, Japanese, Vietnamese, Turkish, Korean, Italian, Polish, Dutch, Azerbaijani, Bulgarian, Catalan, Croatian,
+  Danish, Finnish, Hebrew, Hungarian, Kazakh, Norwegian, Slovak, Slovenian, Swedish and Tagalog, translated either
+  way. Japanese → English is the best tuned.
 - **Listen to:** Auto follows the open browser. Pick an app, **All PC sound** for everything, or **Microphone**.
 - **Caption style:** YouTube's options. Drag the captions anywhere, and scroll the mouse wheel over them to read
   lines you missed.

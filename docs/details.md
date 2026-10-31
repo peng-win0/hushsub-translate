@@ -22,8 +22,9 @@ The window has two pages.
 - **Captions**
   - **Languages:** what is spoken (**Spoken**) and what the captions are in (**Captions in**): English, Chinese (simplified
     or traditional), Spanish, French, Portuguese, Russian, Indonesian, German, Japanese, Vietnamese, Turkish, Korean,
-    Italian, Polish or Dutch. Picking the same language twice shows what is
-    said, untranslated. Japanese → English is what everything is tuned and measured for: the filters
+    Italian, Polish, Dutch, Azerbaijani, Bulgarian, Catalan, Croatian, Danish, Finnish, Hebrew, Hungarian, Kazakh,
+    Norwegian, Slovak, Slovenian, Swedish or Tagalog. Each has at most the recognition error rate of Russian, the
+    weakest of the first fifteen, on FLEURS test speech. Picking the same language twice shows what is said, untranslated. Japanese → English is what everything is tuned and measured for: the filters
     and Fast mode's second pass.
     - **Auto** under Spoken detects each line's language, for audio that mixes languages. Picking the language is
       better when you know it: on Japanese, Auto made ~4 points more recognition errors and was ~0.4 s slower.

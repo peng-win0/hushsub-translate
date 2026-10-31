@@ -51,7 +51,8 @@ foreach ($case in @(@($null, "msedge"), @("MSEdgeHTM", "msedge"), @("ChromeHTML"
 
 $script:captionLang = "Auto"
 foreach ($case in @(@("zh-TW", "Chinese (Traditional)"), @("zh-HK", "Chinese (Traditional)"), @("zh-CN", "Chinese"),
-                    @("vi-VN", "Vietnamese"), @("nl-NL", "Dutch"), @("ja-JP", "Japanese"), @("sv-SE", "English"))) {
+                    @("vi-VN", "Vietnamese"), @("nl-NL", "Dutch"), @("ja-JP", "Japanese"), @("sv-SE", "Swedish"),
+                    @("nb-NO", "Norwegian"), @("fil-PH", "Tagalog"), @("he-IL", "Hebrew"), @("el-GR", "English"))) {
     $got = & { [Threading.Thread]::CurrentThread.CurrentUICulture = $case[0]; Caption-Language }
     if ($got -ne $case[1]) { Fail "captions language for $($case[0]): $got" }
 }

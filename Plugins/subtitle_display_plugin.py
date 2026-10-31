@@ -81,7 +81,7 @@ WHISPER_TO_NLLB = {"ja": "jpn_Jpan", "en": "eng_Latn", "ko": "kor_Hang", "zh": "
                    "ar": "arb_Arab", "az": "azj_Latn", "bg": "bul_Cyrl", "bn": "ben_Beng", "ca": "cat_Latn",
                    "cs": "ces_Latn", "da": "dan_Latn", "el": "ell_Grek", "fa": "pes_Arab", "fi": "fin_Latn",
                    "he": "heb_Hebr", "hi": "hin_Deva", "hr": "hrv_Latn", "hu": "hun_Latn", "kk": "kaz_Cyrl",
-                   "km": "khm_Khmr", "lo": "lao_Laoo", "ms": "zsm_Latn", "my": "mya_Mymr", "no": "nob_Latn",
+                   "km": "khm_Khmr", "lo": "lao_Laoo", "ms": "zsm_Latn", "my": "mya_Mymr", "no": "nob_Latn", "nn": "nob_Latn",
                    "ro": "ron_Latn", "sk": "slk_Latn", "sl": "slv_Latn", "sv": "swe_Latn", "ta": "tam_Taml",
                    "th": "tha_Thai", "tl": "tgl_Latn", "ur": "urd_Arab", "uz": "uzn_Latn", "yue": "yue_Hant"}
 # Caption style picked in the app (CaptionsApp.ps1): size %, color, background %. Re-read when the file changes.
@@ -277,6 +277,31 @@ def fit_end(text, width, measure):
         else:
             lo = mid + 1
     return "…" + text[lo:]
+
+
+_RTL = re.compile("[֐-ࣿיִ-﷿ﹰ-﻿]")  # Hebrew and Arabic letters
+_PUNCT = "[^\\w֑-ׇؐ-ًؚ-ٰٟۖ-ۭ]*"  # not letters, nor their vowel marks
+_EDGES = re.compile(f"^({_PUNCT})(.*?)({_PUNCT})$", re.S)
+
+
+def visual_order(line):
+    """A line's pieces in shown order, left to right: the line itself, or for a right-to-left line (its first letter
+    Hebrew or Arabic) its words from last to first, each with its end punctuation moved to its left. Runs of
+    left-to-right words (Latin, numbers) stay one piece. The overlay draws each piece on its own: Windows orders the
+    letters inside a piece, but given a whole line, lays it out left to right (or word by word, in a font without
+    Hebrew or Arabic, where Tk splits the line by font), so the words and punctuation came out in the wrong order."""
+    # ponytail: not the full Unicode bidi algorithm (brackets aren't mirrored; a left-to-right line keeps an
+    # embedded right-to-left phrase's words in typed order). Enough for whole Hebrew or Arabic captions.
+    first = re.search(r"[^\W\d_]", line)
+    if not first or not _RTL.match(first.group()):
+        return [line]
+    runs = []
+    for word in line.split():
+        if runs and not _RTL.search(word) and not _RTL.search(runs[-1]):
+            runs[-1] += " " + word
+        else:
+            runs.append(word)
+    return [_EDGES.sub(lambda m: m[3] + m[2] + m[1], run) for run in reversed(runs)]
 
 
 # A whole phrase (1-40 chars) said 3+ times in a row, separated by spaces/punctuation.
@@ -1003,12 +1028,21 @@ class SubtitleDisplayPlugin(Plugins.Base):
                 small = isinstance(line, Original)  # the spoken line or the hint: one row, the hint font, as written
                 font = self.cc_hint_font if small else self.cc_font
                 line = fit_end(line, width - px(60), font.measure) if small else line.upper() if caps else line
-                for dx, dy, c in () if small else edges:
-                    self.text_canvas.create_text(width // 2 + dx, y + dy, text=line, fill=c, font=font,
-                                                 anchor="s", tags="cc")
-                t = self.text_canvas.create_text(width // 2, y, text=line, fill=self.cc_color, font=font,
-                                                 anchor="s", tags="cc")
-                x1, y1, x2, y2 = self.text_canvas.bbox(t)
+                pieces, xs, anchor = visual_order(line), [width // 2], "s"
+                if len(pieces) > 1:  # right to left: each word placed on its own, centered together
+                    gap, xs, anchor = font.measure(" "), [], "sw"
+                    x = width // 2 - (sum(map(font.measure, pieces)) + gap * (len(pieces) - 1)) // 2
+                    for piece in pieces:
+                        xs.append(x)
+                        x += font.measure(piece) + gap
+                ids = []
+                for x, piece in zip(xs, pieces):
+                    for dx, dy, c in () if small else edges:
+                        self.text_canvas.create_text(x + dx, y + dy, text=piece, fill=c, font=font,
+                                                     anchor=anchor, tags="cc")
+                    ids.append(self.text_canvas.create_text(x, y, text=piece, fill=self.cc_color, font=font,
+                                                            anchor=anchor, tags="cc"))
+                x1, y1, x2, y2 = self.text_canvas.bbox(*ids)
                 if self.cc_alpha > 0:
                     self.canvas.create_rectangle(x1 - pad, y1, x2 + pad, y2, fill=self.cc_bar, outline="", tags="cc")
                 left, right, y = min(left, x1), max(right, x2), y1  # bars touch, like YouTube's stacked line boxes

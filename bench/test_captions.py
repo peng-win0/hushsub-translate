@@ -29,6 +29,15 @@ lines, a = roll([], "", None)
 assert lines == [] and a is None
 print("roll-up ok")
 
+# Right-to-left lines are drawn piece by piece in shown order: words reversed, end punctuation on their left, vowel
+# marks kept on their letter; other lines are one piece
+for line, want in {"שלום עולם, מה שלומך?": "?שלומך|מה|,עולם|שלום", "בשנת 2017 נפתח הנמל.": ".הנמל|נפתח|2017|בשנת",
+                   "הוא אמר: Hello World 123": "Hello World 123|:אמר|הוא", "Hello שלום world": "Hello שלום world",
+                   "2017 مرحبا بالعالم": "بالعالم|مرحبا|2017", "مرحبا كتبَ.": ".كتبَ|مرحبا",
+                   "Hello, world.": "Hello, world.", "": ""}.items():
+    assert "|".join(sdp.visual_order(line)) == want, (line, sdp.visual_order(line))
+print("right-to-left ok")
+
 # Whisper's YouTube-outro hallucination is dropped whole, opener included; real speech before it is kept.
 for raw, want in {"それでは、ご視聴ありがとうございました。": "", "はい、最後までご視聴ありがとうございました!": "",
                   "今日はゲームをしました。ご視聴ありがとうございました。": "今日はゲームをしました",
@@ -90,7 +99,7 @@ print("fillers ok")
 import re
 app = open(os.path.join(os.path.dirname(path), "..", "CaptionsApp.ps1"), encoding="ascii").read()
 listed = re.findall(r'= "([a-z]{2})", "([a-z]{3}_[A-Z][a-z]{3})"', app.split("$languages = [ordered]@{", 1)[1].split("}", 1)[0])
-assert len(listed) == 16, listed
+assert len(listed) == 30, listed
 for whisper, nllb in listed:
     assert whisper in sdp.WHISPER_TO_NLLB and nllb in sdp._LANGUAGE_NAMES, (whisper, nllb)
 print("languages ok")
