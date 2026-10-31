@@ -1,5 +1,6 @@
 # TEMPORARY translation eval (copied into Plugins/ only for a run by bench/mt/mt-run.sh; active while ../mt_eval.flag exists).
 # MiLMMT-46-4B (int8 weights, CTranslate2) vs the live MiLMMT-1B CT2. cat_runner: CAT-Translate (rejected 2026-10-03).
+# MT_RUNNERS (comma list, default milmmt,milmmt4b) also takes nllb (Fast/Lite/CPU today), milmmt_int8, hymt2, hymt2_8bit.
 # mt_eval.flag holds two lines: the sentences JSON path and the output JSON path.
 import json
 import os
@@ -119,6 +120,66 @@ def milmmt_runner(name="MiLMMT-46-1B-v1.0", compute="bfloat16"):
     return run
 
 
+def nllb_runner():
+    """The plugin's own NLLB call (Fast, Lite and CPU modes)."""
+    import ctranslate2
+    from transformers import AutoTokenizer
+    path = os.path.join(CACHE, "nllb200_ct2", "small")
+    tok = AutoTokenizer.from_pretrained(path)
+    tr = ctranslate2.Translator(path, device="cuda", compute_type="int8_float16")
+
+    def run(text):
+        tok.src_lang = "jpn_Jpan"
+        res = tr.translate_batch([tok.convert_ids_to_tokens(tok.encode(text))], target_prefix=[["eng_Latn"]], beam_size=2,
+                                 no_repeat_ngram_size=3, repetition_penalty=1.1, max_decoding_length=96)
+        return tok.decode(tok.convert_tokens_to_ids(res[0].hypotheses[0][1:]), skip_special_tokens=True).strip()
+    return run
+
+
+HYMT2_REV = "9a341cd1b679d3efd23b46e847b01745a71ed792"  # tencent/Hy-MT2-1.8B, Apache-2.0
+HYMT2_SHA256 = "29e9117a44c79f81857613601968ff482d8a23c2d6736a1710bba9e5ca4762e5"  # model.safetensors
+
+
+def hymt2_runner(eight_bit=False):
+    """Hy-MT2-1.8B with transformers (hunyuan_v1_dense is built in, no remote code), greedy; 8-bit via bitsandbytes."""
+    import hashlib
+    import torch
+    from huggingface_hub import snapshot_download
+    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+    hf_dir = os.path.join(CACHE, "hymt2", "Hy-MT2-1.8B")
+    weights = os.path.join(hf_dir, "model.safetensors")
+    if not os.path.exists(weights):
+        t = time.time()
+        snapshot_download("tencent/Hy-MT2-1.8B", revision=HYMT2_REV, local_dir=hf_dir,
+                          allow_patterns=["*.json", "*.safetensors", "*.jinja"])
+        say(f"Hy-MT2 downloaded in {time.time() - t:.0f} s")
+        h = hashlib.sha256()
+        with open(weights, "rb") as f:
+            for block in iter(lambda: f.read(1 << 24), b""):
+                h.update(block)
+        if h.hexdigest() != HYMT2_SHA256:
+            os.replace(weights, weights + ".bad")
+            raise RuntimeError("Hy-MT2 weights don't match their SHA-256")
+    tok = AutoTokenizer.from_pretrained(hf_dir)
+    model = AutoModelForCausalLM.from_pretrained(hf_dir, dtype=torch.bfloat16, device_map="cuda",
+                                                 quantization_config=BitsAndBytesConfig(load_in_8bit=True) if eight_bit else None)
+
+    def run(text):
+        msg = [{"role": "user", "content": "Translate the following text into English. Note that you should only output "
+                                           f"the translated result without any additional explanation:\n\n{text}"}]
+        ids = tok(tok.apply_chat_template(msg, tokenize=False, add_generation_prompt=True), add_special_tokens=False,
+                  return_tensors="pt")["input_ids"].to("cuda")
+        with torch.inference_mode():
+            out = model.generate(ids, max_new_tokens=256, do_sample=False, repetition_penalty=1.05)
+        return tok.decode(out[0][ids.shape[1]:], skip_special_tokens=True).strip()
+    return run
+
+
+RUNNERS = {"milmmt": milmmt_runner, "milmmt4b": lambda: milmmt_runner("MiLMMT-46-4B-v1.0", "int8_bfloat16"),
+           "milmmt_int8": lambda: milmmt_runner(compute="int8_bfloat16"), "nllb": nllb_runner,
+           "hymt2": hymt2_runner, "hymt2_8bit": lambda: hymt2_runner(eight_bit=True)}
+
+
 def main():
     try:
         with open(FLAG, encoding="utf-8") as f:
@@ -130,10 +191,10 @@ def main():
             items = json.load(f)
         import torch
         runners = {}
-        for name, make in (("milmmt", milmmt_runner), ("milmmt4b", lambda: milmmt_runner("MiLMMT-46-4B-v1.0", "int8_bfloat16"))):
+        for name in os.environ.get("MT_RUNNERS", "milmmt,milmmt4b").split(","):
             try:
                 before = torch.cuda.mem_get_info()[0]
-                runners[name] = make()
+                runners[name] = RUNNERS[name]()
                 say(f"{name} loaded, ~{(before - torch.cuda.mem_get_info()[0]) / 2**20:.0f} MiB")
             except Exception:
                 say(f"{name} FAILED")
