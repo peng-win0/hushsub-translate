@@ -259,10 +259,12 @@ function Write-Profile($path, $process, $device, $limit, $threads) {
 }
 
 # Windows' switches in Settings > Privacy & security > Microphone. With one off, the engine can't open any microphone
-# (PortAudio: "Invalid device") and crashes at each start; speakers' loopback isn't covered by them.
+# (PortAudio: "Invalid device") and crashes at each start; speakers' loopback isn't covered by them. Only the two that
+# Microsoft says gate desktop apps: "Let apps access your microphone" (HKCU's own Value) is for Store apps, and waiting
+# on it could hold back an engine that would have worked.
 function Mic-Blocked {
     $k = "Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone"
-    foreach ($p in "HKLM:\$k", "HKCU:\$k", "HKCU:\$k\NonPackaged") {  # the PC's, the user's, desktop apps'
+    foreach ($p in "HKLM:\$k", "HKCU:\$k\NonPackaged") {  # Microphone access (the PC's), Let desktop apps
         if ("$((Get-ItemProperty -LiteralPath $p -Name Value -ErrorAction SilentlyContinue).Value)" -eq "Deny") { return $true }
     }
     $false
