@@ -34,7 +34,10 @@ print("roll-up ok")
 for line, want in {"שלום עולם, מה שלומך?": "?שלומך|מה|,עולם|שלום", "בשנת 2017 נפתח הנמל.": ".הנמל|נפתח|2017|בשנת",
                    "הוא אמר: Hello World 123": "Hello World 123|:אמר|הוא", "Hello שלום world": "Hello שלום world",
                    "2017 مرحبا بالعالم": "بالعالم|مرحبا|2017", "مرحبا كتبَ.": ".كتبَ|مرحبا",
-                   "Hello, world.": "Hello, world.", "": ""}.items():
+                   "Hello, world.": "Hello, world.", "": "",
+                   "iPhone חדש בחנות": "בחנות|חדש|iPhone",      # a wrapped row of a Hebrew caption, Latin first
+                   "עלה ב 50%": "50%|ב|עלה", "המחיר $5.": ".$5|המחיר",  # a number keeps its % and $
+                   "שלום Hello - עולם": "עולם|-|Hello|שלום"}.items():  # a lone dash stays its own piece
     assert "|".join(sdp.visual_order(line)) == want, (line, sdp.visual_order(line))
 print("right-to-left ok")
 

@@ -280,28 +280,43 @@ def fit_end(text, width, measure):
 
 
 _RTL = re.compile("[֐-ࣿיִ-﷿ﹰ-﻿]")  # Hebrew and Arabic letters
-_PUNCT = "[^\\w֑-ׇؐ-ًؚ-ٰٟۖ-ۭ]*"  # not letters, nor their vowel marks
+_PUNCT = "[^\\w\\s֑-ׇؐ-ًؚ-ٰٟۖ-ۭ]*"  # not letters, nor their vowel marks
 _EDGES = re.compile(f"^({_PUNCT})(.*?)({_PUNCT})$", re.S)
+_ON_NUMBER = "#$%°‰₪€£¥¢"  # signs that stay on their number's side ("50%", "$5"; bidi rule W5)
+
+
+def _flip(m):  # a piece's end punctuation moved to its other side, but not a sign that belongs to a number
+    lead, core, end = m[1], m[2], m[3]
+    if core[:1].isdigit():
+        keep = len(lead) - len(lead.rstrip(_ON_NUMBER))
+        lead, core = lead[:len(lead) - keep], lead[len(lead) - keep:] + core
+    if core[-1:].isdigit():
+        keep = len(end) - len(end.lstrip(_ON_NUMBER))
+        core, end = core + end[:keep], end[keep:]
+    return end + core + lead
 
 
 def visual_order(line):
     """A line's pieces in shown order, left to right: the line itself, or for a right-to-left line (its first letter
-    Hebrew or Arabic) its words from last to first, each with its end punctuation moved to its left. Runs of
-    left-to-right words (Latin, numbers) stay one piece. The overlay draws each piece on its own: Windows orders the
-    letters inside a piece, but given a whole line, lays it out left to right (or word by word, in a font without
-    Hebrew or Arabic, where Tk splits the line by font), so the words and punctuation came out in the wrong order."""
+    Hebrew or Arabic, or at least half its letters) its words from last to first, each with its end punctuation moved
+    to its left. Runs of left-to-right words (Latin, numbers) stay one piece. The overlay draws each piece on its own:
+    Windows orders the letters inside a piece, but given a whole line, lays it out left to right (or word by word, in a
+    font without Hebrew or Arabic, where Tk splits the line by font), so the words and punctuation came out in the
+    wrong order. The share of letters covers a wrapped row of a Hebrew caption that starts with a Latin word."""
     # ponytail: not the full Unicode bidi algorithm (brackets aren't mirrored; a left-to-right line keeps an
-    # embedded right-to-left phrase's words in typed order). Enough for whole Hebrew or Arabic captions.
-    first = re.search(r"[^\W\d_]", line)
-    if not first or not _RTL.match(first.group()):
+    # embedded right-to-left phrase's words in typed order; "ה-iPhone" stays one piece in typed order). Enough for
+    # whole Hebrew or Arabic captions.
+    letters = re.findall(r"[^\W\d_]", line)
+    rtl = sum(map(bool, map(_RTL.match, letters)))
+    if not letters or not (_RTL.match(letters[0]) or 2 * rtl >= len(letters)):
         return [line]
     runs = []
-    for word in line.split():
-        if runs and not _RTL.search(word) and not _RTL.search(runs[-1]):
+    for word in line.split():  # a word of only punctuation stays its own piece
+        if runs and re.search(r"\w", word) and re.search(r"\w", runs[-1]) and not _RTL.search(word + runs[-1]):
             runs[-1] += " " + word
         else:
             runs.append(word)
-    return [_EDGES.sub(lambda m: m[3] + m[2] + m[1], run) for run in reversed(runs)]
+    return [_EDGES.sub(_flip, run) for run in reversed(runs)]
 
 
 # A whole phrase (1-40 chars) said 3+ times in a row, separated by spaces/punctuation.
