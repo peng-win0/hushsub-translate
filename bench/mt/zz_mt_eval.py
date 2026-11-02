@@ -1,6 +1,7 @@
 # TEMPORARY translation eval (copied into Plugins/ only for a run by bench/mt/mt-run.sh; active while ../mt_eval.flag exists).
 # MiLMMT-46-4B (int8 weights, CTranslate2) vs the live MiLMMT-1B CT2. cat_runner: CAT-Translate (rejected 2026-10-03).
 # MT_RUNNERS (comma list, default milmmt,milmmt4b) also takes nllb (Fast/Lite/CPU today), milmmt_int8, hymt2, hymt2_8bit.
+# Items: {"ja", "ref"}, or {"text", "src" (an NLLB code), "ref"} for other languages (FLEURS: bench/mt/fleurs_mt.py).
 # mt_eval.flag holds two lines: the sentences JSON path and the output JSON path.
 import json
 import os
@@ -40,7 +41,7 @@ def cat_runner(size):
     say(f"{size} end tokens {ends}, bos {tok.bos_token!r}, chat template sample: "
         f"{tok.apply_chat_template([{'role': 'user', 'content': 'X'}], tokenize=False, add_generation_prompt=True)!r}")
 
-    def run(text):
+    def run(text, src=None):  # the model reads the source language itself
         msg = [{"role": "user", "content": f"Translate the following Japanese text into English.\n\n{text}"}]
         prompt = tok.apply_chat_template(msg, tokenize=False, add_generation_prompt=True)
         ids = tok(prompt, add_special_tokens=False)["input_ids"]
@@ -109,11 +110,10 @@ def milmmt_runner(name="MiLMMT-46-1B-v1.0", compute="bfloat16"):
         say(f"{name} converted")
     tok = AutoTokenizer.from_pretrained(hf_dir)
     gen = ctranslate2.Generator(ct2_dir, device="cuda", compute_type=compute)
-    _, src = m._resolve_language("jpn_Jpan")
     _, trg = m._resolve_language("eng_Latn")
 
-    def run(text):
-        ids = tok(m.build_prompt(src, trg, text), add_special_tokens=False)["input_ids"]
+    def run(text, src="jpn_Jpan"):
+        ids = tok(m.build_prompt(m._resolve_language(src)[1], trg, text), add_special_tokens=False)["input_ids"]
         res = gen.generate_batch([tok.convert_ids_to_tokens(ids)], max_length=256, sampling_topk=1,
                                  include_prompt_in_result=False, end_token=["<eos>", "<end_of_turn>"])
         return tok.decode(res[0].sequences_ids[0], skip_special_tokens=True).strip()
@@ -128,8 +128,8 @@ def nllb_runner():
     tok = AutoTokenizer.from_pretrained(path)
     tr = ctranslate2.Translator(path, device="cuda", compute_type="int8_float16")
 
-    def run(text):
-        tok.src_lang = "jpn_Jpan"
+    def run(text, src="jpn_Jpan"):
+        tok.src_lang = src
         res = tr.translate_batch([tok.convert_ids_to_tokens(tok.encode(text))], target_prefix=[["eng_Latn"]], beam_size=2,
                                  no_repeat_ngram_size=3, repetition_penalty=1.1, max_decoding_length=96)
         return tok.decode(tok.convert_tokens_to_ids(res[0].hypotheses[0][1:]), skip_special_tokens=True).strip()
@@ -164,7 +164,7 @@ def hymt2_runner(eight_bit=False):
     model = AutoModelForCausalLM.from_pretrained(hf_dir, dtype=torch.bfloat16, device_map="cuda",
                                                  quantization_config=BitsAndBytesConfig(load_in_8bit=True) if eight_bit else None)
 
-    def run(text):
+    def run(text, src=None):  # the model reads the source language itself
         msg = [{"role": "user", "content": "Translate the following text into English. Note that you should only output "
                                            f"the translated result without any additional explanation:\n\n{text}"}]
         ids = tok(tok.apply_chat_template(msg, tokenize=False, add_generation_prompt=True), add_special_tokens=False,
@@ -208,7 +208,7 @@ def main():
             for name, run in runners.items():
                 t = time.perf_counter()
                 try:
-                    row[name] = run(item["ja"])
+                    row[name] = run(item["ja"]) if "ja" in item else run(item["text"], item["src"])
                 except Exception as e:
                     row[name] = f"<error {e}>"
                 row[name + "_ms"] = round(1000 * (time.perf_counter() - t))
