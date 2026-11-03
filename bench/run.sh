@@ -1,7 +1,7 @@
 #!/bin/sh
 # One silent benchmark run through the bench harness (Plugins/zz_bench_harness.py + bench.flag).
 # usage (from the project folder): sh bench/run.sh NAME PROFILE [warmupSeconds]   -> bench/out/NAME.*
-# RAW=<16 kHz mono PCM16 file> feeds other audio than bench/test.raw.
+# RAW=<16 kHz mono PCM16 file> feeds other audio than bench/test.raw. PRIME=seconds (and PRIMEWAIT): see below.
 B="$(dirname "$0")"
 NAME=$1
 PROF=$2
@@ -12,6 +12,13 @@ audioWhisper/audioWhisper.exe --config "$PROF" --remote_host > "$O.engine.log" 2
 EPID=$!
 node "$B/waitws.mjs" 5002 400 || { kill $EPID; exit 1; }
 sleep "$WARM"
+if [ -n "$PRIME" ]; then
+  # PRIME=seconds of the audio fed first and thrown away, for a model that loads on the first audio (Qwen3-ASR): fed
+  # into a model still loading, the engine drops the stream ("Audio arrived faster than real time")
+  node "$B/feed.mjs" "${RAW:-$B/test.raw}" .cache/remote-audio/pairing-key 5001 "" "$PRIME"
+  sleep "${PRIMEWAIT:-120}"
+  rm -f probe/display.jsonl
+fi
 node "$B/feed.mjs" "${RAW:-$B/test.raw}" .cache/remote-audio/pairing-key 5001 "$O.jsonl"
 sleep 6
 cp probe/display.jsonl "$O.display.jsonl"
