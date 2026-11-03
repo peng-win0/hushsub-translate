@@ -27,7 +27,7 @@ for pair in "$@"; do
   echo "temporary: enables Plugins/zz_bench_harness.py" > bench.flag
   nvidia-smi --query-gpu=timestamp,memory.used,utilization.gpu --format=csv,noheader -l 2 > "$O.vram.csv" &
   VPID=$!
-  sh "$B/run.sh" "$N" "$O.yaml" 90
+  sh "$B/run.sh" "$N" "$O.yaml" "${WARM:-90}"  # WARM=seconds: longer for a model the engine still has to download
   kill $VPID 2>/dev/null
   rm -f Plugins/zz_bench_harness.py bench.flag
   grep -a "translator (\|translator ready\|unavailable\|Traceback" "$O.engine.log" | head -8
