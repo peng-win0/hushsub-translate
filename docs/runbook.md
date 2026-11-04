@@ -58,6 +58,8 @@ said. Most reports are one of the README's troubleshooting entries.
 - **Engine:** change the mirrors and `$sha256` in `app/install.ps1` (the SHA-256 of the engine's ZIP), then try
   each mode on a PC with an NVIDIA card and one without. Check that the plugin's hooks (`stt_caption`,
   `streaming_caption_text`) and the profile keys that `app/captions.ps1` and `CaptionsApp.ps1` write still exist.
+  Run `node bench/osv.mjs` (it sends only package names and versions to OSV.dev) and update the counts in
+  `docs/details.md`, "Known issues in the engine's libraries".
 - **A model:** change its entry (`File`, `Size`, `Sha`) at the top of `app/captions.ps1`. Measure it with the kit in
   `bench/` against the current one first (see the decision log for what was tried and rejected).
 
