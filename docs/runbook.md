@@ -61,7 +61,7 @@ said. Most reports are one of the README's troubleshooting entries.
   Run `node bench/osv.mjs` (it sends only package names and versions to OSV.dev) and update the counts in
   `docs/details.md`, "Known issues in the engine's libraries".
 - **A model:** change its entry (`File`, `Size`, `Sha`) at the top of `app/captions.ps1`. Measure it with the kit in
-  `bench/` against the current one first (see the decision log for what was tried and rejected).
+  `bench/` against the current one first.
 
 ## CI fails
 
