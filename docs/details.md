@@ -122,7 +122,8 @@ engine comes as one prebuilt package from Whispering Tiger, so until then nothin
   [urllib3 1.26.18](https://github.com/advisories?query=ecosystem%3Apip+urllib3) and
   [requests 2.32.3](https://github.com/advisories?query=ecosystem%3Apip+requests) (proxies, redirects, oversized or
   highly compressed replies, a temporary file another user of the PC could plant) and
-  [PyTorch 2.7.1](https://github.com/advisories?query=ecosystem%3Apip+torch) (crafted inputs to a few functions).
+  [PyTorch 2.7.1](https://github.com/advisories?query=ecosystem%3Apip+torch) (crafted inputs to a few functions, and
+  a crafted checkpoint file: [CVE-2026-24747](https://github.com/advisories/GHSA-63cw-57p8-fm3p), fixed in 2.10.0).
   The first two take part only if the engine fetches a model itself (the app downloads each one first, with
   Windows' curl), from the fixed servers above over HTTPS, and a file that isn't the pinned one is rejected, so the
   worst a hostile server could do is make a download fail or use too much memory.
