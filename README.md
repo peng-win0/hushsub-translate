@@ -83,6 +83,9 @@ Measured on an RTX 4060 Laptop. NLLB is licensed for non-commercial use only: fo
 - **CPU mode on an NVIDIA card:** other apps hold the graphics memory. Close them, then Stop and Start.
 - **A download failed:** press **Start** or **Resume** again; it continues where it stopped. If a DNS filter blocks
   it (Cloudflare WARP for Families, NextDNS, Pi-hole), allow `contabostorage.com` until the install finishes.
+- **Private Captions 1.4 or older finds no update:** the page it checks is gone. Download the ZIP above and open
+  `Hushsub Translate.bat`: the new version installs beside the old one and downloads the engine again. Then the old
+  folder and its shortcuts can go.
 - **Still stuck:** About → **Send feedback** opens a problem report with your setup filled in, never your captions.
 
 ## Privacy
