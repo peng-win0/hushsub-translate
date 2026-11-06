@@ -51,7 +51,8 @@ foreach ($case in @(@($null, "msedge"), @("MSEdgeHTM", "msedge"), @("ChromeHTML"
 
 $script:captionLang = "Auto"
 foreach ($case in @(@("zh-TW", "Chinese (Traditional)"), @("zh-HK", "Chinese (Traditional)"), @("zh-CN", "Chinese"),
-                    @("vi-VN", "Vietnamese"), @("nl-NL", "Dutch"), @("ja-JP", "Japanese"), @("sv-SE", "English"))) {
+                    @("vi-VN", "Vietnamese"), @("nl-NL", "Dutch"), @("ja-JP", "Japanese"), @("sv-SE", "Swedish"),
+                    @("nb-NO", "Norwegian"), @("fil-PH", "Tagalog"), @("he-IL", "Hebrew"), @("el-GR", "English"))) {
     $got = & { [Threading.Thread]::CurrentThread.CurrentUICulture = $case[0]; Caption-Language }
     if ($got -ne $case[1]) { Fail "captions language for $($case[0]): $got" }
 }
@@ -88,3 +89,33 @@ if ($after[1] -cne "audio_input_device: ''" -or $after[2] -cne "audio_input_proc
 }
 Remove-Item -LiteralPath $yaml
 "profile ok"
+
+# captions.ps1 waits, and the app says why, when Windows' privacy switches keep desktop apps off the microphone (the
+# engine crashed at each start): the PC's switch or the desktop apps' one set to Deny blocks it; the Store apps' one
+# (HKCU's own Value) doesn't, nor do missing keys
+$fn = $cap.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq "Mic-Blocked" }, $true)
+Invoke-Expression $fn.Extent.Text
+function Get-ItemProperty($LiteralPath) {
+    if ($script:deny -eq "missing") { $null } elseif ($script:deny -and $LiteralPath -like $script:deny) { [pscustomobject]@{ Value = "Deny" } } else { [pscustomobject]@{ Value = "Allow" } }
+}
+foreach ($case in @($null, $false), @("missing", $false), @("HKLM:*microphone", $true), @("HKCU:*microphone", $false), @("*\NonPackaged", $true)) {
+    $script:deny = $case[0]
+    if ((Mic-Blocked) -ne $case[1]) { Fail "microphone blocked by $($case[0]): $(Mic-Blocked)" }
+}
+"microphone switches ok"
+
+# The README's privacy promise, in every mode's profile: the engine's websocket and OSC servers off (no open network
+# port: checked live with netstat, the engine has no socket), and nothing saved (no transcript file, no audio). Each
+# line once: a missing one would fall back to the engine's default (its websocket server on 127.0.0.1:5000)
+$profiles = @(Get-ChildItem -LiteralPath "$PSScriptRoot\..\app\Profiles" -Filter *.yaml)
+if ($profiles.Count -lt 5) { Fail "profiles: $($profiles.Count)" }
+foreach ($p in $profiles) {
+    $lines = [IO.File]::ReadAllLines($p.FullName)
+    foreach ($want in "websocket_ip: '0'", "osc_server_ip: '0'", "transcription_auto_save_file: ''",
+                      "transcription_save_audio_dir: ''", "transcription_auto_save_continuous_text: false") {
+        $key = $want.Split(":")[0] + ":"
+        $have = @($lines | Where-Object { $_.StartsWith($key) })
+        if ($have.Count -ne 1 -or $have[0] -cne $want) { Fail "$($p.Name): $key $($have -join ' / ')" }
+    }
+}
+"privacy settings ok"

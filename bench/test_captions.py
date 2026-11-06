@@ -29,6 +29,18 @@ lines, a = roll([], "", None)
 assert lines == [] and a is None
 print("roll-up ok")
 
+# Right-to-left lines are drawn piece by piece in shown order: words reversed, end punctuation on their left, vowel
+# marks kept on their letter; other lines are one piece
+for line, want in {"שלום עולם, מה שלומך?": "?שלומך|מה|,עולם|שלום", "בשנת 2017 נפתח הנמל.": ".הנמל|נפתח|2017|בשנת",
+                   "הוא אמר: Hello World 123": "Hello World 123|:אמר|הוא", "Hello שלום world": "Hello שלום world",
+                   "2017 مرحبا بالعالم": "بالعالم|مرحبا|2017", "مرحبا كتبَ.": ".كتبَ|مرحبا",
+                   "Hello, world.": "Hello, world.", "": "",
+                   "iPhone חדש בחנות": "בחנות|חדש|iPhone",      # a wrapped row of a Hebrew caption, Latin first
+                   "עלה ב 50%": "50%|ב|עלה", "המחיר $5.": ".$5|המחיר",  # a number keeps its % and $
+                   "שלום Hello - עולם": "עולם|-|Hello|שלום"}.items():  # a lone dash stays its own piece
+    assert "|".join(sdp.visual_order(line)) == want, (line, sdp.visual_order(line))
+print("right-to-left ok")
+
 # Whisper's YouTube-outro hallucination is dropped whole, opener included; real speech before it is kept.
 for raw, want in {"それでは、ご視聴ありがとうございました。": "", "はい、最後までご視聴ありがとうございました!": "",
                   "今日はゲームをしました。ご視聴ありがとうございました。": "今日はゲームをしました",
@@ -37,6 +49,9 @@ for raw, want in {"それでは、ご視聴ありがとうございました。"
                   "それでは始めます": "それでは始めます"}.items():
     assert sdp.strip_outro(raw) == want, (raw, sdp.strip_outro(raw))
 print("outro ok")
+assert sdp.sound_tag("8888") == sdp.sound_tag("（拍手）") == "[applause]"
+t = time.time()
+assert sdp.sound_tag("8" * 60 + "。") is None and time.time() - t < 1  # took minutes when a long run of 8s didn't match
 for line in ("Thank you for watching this video!", "  THANKS for watching this video", "ご視聴ありがとうございました。", "You."):
     assert sdp.is_fake(line), line                             # fake-lines.txt: any case, spacing or punctuation
 for line in ("Subtítulos realizados por la comunidad de Amara.org", "Субтитры сделал DimaTorzok",
@@ -87,7 +102,7 @@ print("fillers ok")
 import re
 app = open(os.path.join(os.path.dirname(path), "..", "CaptionsApp.ps1"), encoding="ascii").read()
 listed = re.findall(r'= "([a-z]{2})", "([a-z]{3}_[A-Z][a-z]{3})"', app.split("$languages = [ordered]@{", 1)[1].split("}", 1)[0])
-assert len(listed) == 16, listed
+assert len(listed) == 30, listed
 for whisper, nllb in listed:
     assert whisper in sdp.WHISPER_TO_NLLB and nllb in sdp._LANGUAGE_NAMES, (whisper, nllb)
 print("languages ok")
@@ -158,6 +173,7 @@ osc["audio_input_process"] = "chrome.exe"; final("From a video.")  # Listen to c
 osc["audio_input_process"], osc["audio_input_device"] = "", "Speakers (Realtek) [Loopback]"; final("All PC sound.")
 osc["audio_input_device"] = "Microphone (USB)"; final("Into the mic.")
 p._chat("[music]")  # a sound tag: shown in the captions, never sent
+p.cc_paused = True; p._chat("Said before Stop."); p.cc_paused = False  # finished after Stop: not sent either
 got = []
 rx.settimeout(0.3)
 try:

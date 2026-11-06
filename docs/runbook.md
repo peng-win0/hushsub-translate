@@ -20,6 +20,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File bench/test_zip.ps1
 ruff check Plugins bench
 ```
 
+CI pins ruff 0.17.3: without it installed, `uvx ruff@0.17.3 check Plugins bench` runs the same version (it downloads ruff the first time).
 Scripts must parse in Windows PowerShell 5.1 and be plain ASCII (CI checks both). The plugin runs on the engine's
 Python 3.11.
 
@@ -40,9 +41,11 @@ If `app/launcher.cs` changed, raise its `AssemblyVersion` too: the app rebuilds 
 
 - **For everyone:** publish a new, higher version with the fix or the previous code. The updater never goes back
   to a lower version, so deleting the release doesn't undo it for copies that already updated.
-- **For one PC, now:** close the app and copy everything in its folder's `.update-backup\` back over the folder. It
-  holds the files the last update replaced, `version.txt` included. Then turn off **Update automatically** until the
-  fix is out.
+- **For one PC, now:** turn off **Update automatically**, close the app, download the previous release's source ZIP
+  from GitHub and copy what is inside its top folder over the app's folder, except `app\glossary.txt` and
+  `app\fake-lines.txt`, which hold the user's own words (the engine, models and settings aren't in it, so they stay).
+  Files the bad release added stay too; they do nothing unless the old code uses them. A good update keeps no backup:
+  `.update-backup\` stays only after a failed one, whose files are already restored.
 
 ## A problem report
 
@@ -55,8 +58,10 @@ said. Most reports are one of the README's troubleshooting entries.
 - **Engine:** change the mirrors and `$sha256` in `app/install.ps1` (the SHA-256 of the engine's ZIP), then try
   each mode on a PC with an NVIDIA card and one without. Check that the plugin's hooks (`stt_caption`,
   `streaming_caption_text`) and the profile keys that `app/captions.ps1` and `CaptionsApp.ps1` write still exist.
+  Run `node bench/osv.mjs` (it sends only package names and versions to OSV.dev) and update the counts in
+  `docs/details.md`, "Known issues in the engine's libraries".
 - **A model:** change its entry (`File`, `Size`, `Sha`) at the top of `app/captions.ps1`. Measure it with the kit in
-  `bench/` against the current one first (see the decision log for what was tried and rejected).
+  `bench/` against the current one first.
 
 ## CI fails
 

@@ -28,7 +28,7 @@ struct Info { public short W, H, X, Y, Attr, L, T, R, B, MaxW, MaxH; }
 static string text, seen;
 static int same;
 // The console's last 1000 rows up to the cursor; null without a console. Row by row: a wide (CJK) character
-// fills two cells but reads as one character. A row that ends in text was wrapped by the console: joined to the next.
+// fills two cells but reads as one character.
 // Reading every row takes ~35 ms, so while the cursor and the last two rows are unchanged the last text is reused
 // (read again every 5th time anyway: once the console is full, an exact repeat of the last line changes neither).
 public static string Text() {
@@ -38,14 +38,35 @@ public static string Text() {
     string now = i.X + "," + i.Y + "\n" + Row(h, s, i.W, i.Y - 1) + "\n" + Row(h, s, i.W, i.Y);
     if (text != null && now == seen && ++same < 5) return text;
     seen = now; same = 0;
-    var t = new System.Text.StringBuilder();
-    for (int y = System.Math.Max(0, i.Y - 999); y <= i.Y; y++) {
-        string row = Row(h, s, i.W, y);
-        if (row == null) continue;
-        t.Append(row.TrimEnd());
-        if (row.Length == 0 || row[row.Length - 1] == ' ' || y == i.Y) t.Append("\r\n");
+    var rows = new System.Collections.Generic.List<string>();
+    int top = System.Math.Max(0, i.Y - 1000);
+    // A full buffer scrolls under the read: each new line moves every row up, so a row would be skipped, maybe a said
+    // line's prefix row, and its rest shown unhidden. Read again then (the first two rows moved); else keep the last.
+    for (int tries = 0; ; tries++) {
+        rows.Clear();
+        for (int y = top; y <= i.Y; y++) {
+            string row = Row(h, s, i.W, y);
+            if (row != null) rows.Add(row);
+        }
+        if (i.Y < i.H - 1 || rows.Count < 2 || (Row(h, s, i.W, top) == rows[0] && Row(h, s, i.W, top + 1) == rows[1])) break;
+        if (tries == 2) { seen = null; return text ?? ""; }
     }
-    return text = t.ToString().TrimEnd();
+    return text = Join(rows, top > 0 || i.Y == i.H - 1);  // above the first row (or scrolled off a full buffer): more
+}
+// A row that ends in text, or in up to 32 blank cells (wrapped at spaces, or before a wide character that didn't fit),
+// was wrapped by the console: joined to the next, so a said line that wraps stays one line for Hide-Said. A line that
+// really ends that near the right edge is joined too: Hide-Said finds the engine's prefix anywhere in a line, so at
+// worst more is hidden. Blank cells are ' ' (not the ideographic space a said line can end in). With more text above,
+// the first line may be a said line's end without its prefix: dropped.
+public static string Join(System.Collections.Generic.List<string> rows, bool more) {
+    var t = new System.Text.StringBuilder();
+    foreach (string row in rows) {
+        string r = row.TrimEnd(' '); int pad = row.Length - r.Length;
+        t.Append(r).Append(row.Length == 0 || pad > 32 ?"\r\n" : pad > 0 ? " " : "");
+    }
+    string j = t.ToString();
+    if (more) { int n = j.IndexOf("\r\n"); j = n < 0 ? "" : j.Substring(n + 2); }
+    return j.TrimEnd();
 }
 static string Row(IntPtr h, System.Text.StringBuilder s, int w, int y) {
     int read; s.Length = 0;
@@ -94,7 +115,7 @@ $noise = '^(triton\\windows_utils\.py:\d+: UserWarning: Failed to find CUDA\.|\s
          'forrtl: error \(200\): program aborting due to window-CLOSE event|Image\s+PC\s+Routine\s+Line\s+Source|\S+\s+[0-9A-F]{16}\s+Unknown\s+Unknown\s+Unknown)$'
 # What was said stays in memory: the engine prints each line it hears, and the log (a file, and Show log's Copy) keeps
 # only that a line was heard
-function Hide-Said($t) { $t -replace '(?m)^(Transcribe(?: \(OSC\))?|skipping\.\.\. result):[^\r\n]*', '$1: (text hidden)' }
+function Hide-Said($t) { $t -replace '(Transcribe(?: \(OSC\))?|skipping\.\.\. result):[^\r\n]*', '$1: (text hidden)' }
 $script:logText = $null
 $script:readyLines = $null  # "now ready" lines in the console when the engine (re)started; $null: ready, or no engine yet
 function Save-Log {
@@ -170,9 +191,24 @@ function Get-Model($m) {
     }
     Set-Content -LiteralPath ".captions-download" -Value $m.Label  # the app: checking and unpacking
     Save-Log
-    $ok = (& $size) -eq $m.Size -and (Get-FileHash -LiteralPath $zip).Hash -eq $m.Sha
-    if ($ok) { & "$env:SystemRoot\System32\tar.exe" -xf $zip -C $dir; $ok = [bool]($m.Done | Where-Object { Test-Path -LiteralPath ".cache\$_" }) }
-    if ($ok -or (& $size) -ge $m.Size) { Remove-Item -LiteralPath $zip -ErrorAction SilentlyContinue }  # done, or damaged
+    $good = $ok = (& $size) -eq $m.Size -and (Get-FileHash -LiteralPath $zip).Hash -eq $m.Sha
+    if ($ok) {
+        # unpacked beside, then moved in: an unpack cut short (Stop, the window closed, a full disk) leaves no model
+        # file that counts as there, so the next Start unpacks again instead of running a broken model
+        $tmp = "$dir\.unpack"
+        Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+        $null = New-Item -ItemType Directory $tmp
+        & "$env:SystemRoot\System32\tar.exe" -xf $zip -C $tmp
+        if ($LASTEXITCODE -eq 0) {
+            foreach ($e in Get-ChildItem -LiteralPath $tmp -Force) {
+                Remove-Item -LiteralPath "$dir\$($e.Name)" -Recurse -Force -ErrorAction SilentlyContinue  # a cut one from before
+                Move-Item -LiteralPath $e.FullName -Destination $dir
+            }
+        }
+        Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+        $ok = [bool]($m.Done | Where-Object { Test-Path -LiteralPath ".cache\$_" })
+    }
+    if ($ok -or (-not $good -and (& $size) -ge $m.Size)) { Remove-Item -LiteralPath $zip -ErrorAction SilentlyContinue }  # done, or damaged (a good zip that did not unpack, disk full, stays for the next Start)
     Remove-Item -LiteralPath ".captions-download" -ErrorAction SilentlyContinue
     if (-not $ok) { Write-Host "Could not download the $($m.Label). Check your internet connection, then press Start to continue."; "Download failed" }
 }
@@ -222,6 +258,18 @@ function Write-Profile($path, $process, $device, $limit, $threads) {
     [IO.File]::WriteAllLines($path, [string[]]$yaml)  # UTF-8 without BOM
 }
 
+# Windows' switches in Settings > Privacy & security > Microphone. With one off, the engine can't open any microphone
+# (PortAudio: "Invalid device") and crashes at each start; speakers' loopback isn't covered by them. Only the two that
+# Microsoft says gate desktop apps: "Let apps access your microphone" (HKCU's own Value) is for Store apps, and waiting
+# on it could hold back an engine that would have worked.
+function Mic-Blocked {
+    $k = "Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone"
+    foreach ($p in "HKLM:\$k", "HKCU:\$k\NonPackaged") {  # Microphone access (the PC's), Let desktop apps
+        if ("$((Get-ItemProperty -LiteralPath $p -Name Value -ErrorAction SilentlyContinue).Value)" -eq "Deny") { return $true }
+    }
+    $false
+}
+
 $quickCrashes = 0
 while (-not $downloadFailed) {
     if ($App -in "system", "mic") {
@@ -229,6 +277,12 @@ while (-not $downloadFailed) {
         if (-not ($speakers = [W.Speakers]::Name($flow))) {
             Write-Host "Waiting for $(('speakers or headphones', 'a microphone')[$flow]) (captions begin automatically)..."
             while (-not ($speakers = [W.Speakers]::Name($flow))) { Save-Log; Start-Sleep -Seconds 2 }
+        }
+        if ($flow -and (Mic-Blocked)) {
+            Write-Host "Windows blocks desktop apps from the microphone: turn on Microphone access and Let desktop apps access your microphone in Settings > Privacy & security > Microphone (captions begin automatically)..."
+            Set-Content -LiteralPath ".captions-mic-blocked" -Value "1"  # the app says which switch
+            while (Mic-Blocked) { Save-Log; Start-Sleep -Seconds 2 }
+            Remove-Item -LiteralPath ".captions-mic-blocked" -ErrorAction SilentlyContinue
         }
         Write-Host "Listening to $(('all sound on', 'the microphone')[$flow]): $speakers"
         $process, $device = "", "$speakers$((' [Loopback]', '')[$flow])"

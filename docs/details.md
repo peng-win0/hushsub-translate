@@ -22,8 +22,9 @@ The window has two pages.
 - **Captions**
   - **Languages:** what is spoken (**Spoken**) and what the captions are in (**Captions in**): English, Chinese (simplified
     or traditional), Spanish, French, Portuguese, Russian, Indonesian, German, Japanese, Vietnamese, Turkish, Korean,
-    Italian, Polish or Dutch. Picking the same language twice shows what is
-    said, untranslated. Japanese → English is what everything is tuned and measured for: the filters
+    Italian, Polish, Dutch, Azerbaijani, Bulgarian, Catalan, Croatian, Danish, Finnish, Hebrew, Hungarian, Kazakh,
+    Norwegian, Slovak, Slovenian, Swedish or Tagalog. Each has at most the recognition error rate of Russian, the
+    weakest of the first fifteen, on FLEURS test speech. Picking the same language twice shows what is said, untranslated. Japanese → English is what everything is tuned and measured for: the filters
     and Fast mode's second pass.
     - **Auto** under Spoken detects each line's language, for audio that mixes languages. Picking the language is
       better when you know it: on Japanese, Auto made ~4 points more recognition errors and was ~0.4 s slower.
@@ -118,7 +119,24 @@ engine comes as one prebuilt package from Whispering Tiger, so until then nothin
   CVSS 6.1). Both need a crafted model file. The app loads only the hash-checked models above (MiLMMT is converted
   from its checked download on the PC), so they are out of reach unless someone can already write to the app's
   folder, and could then replace the engine itself. The engine's libraries are updated by Whispering Tiger's
-  releases; the app moves to a new engine release once it has been tested.
+  releases (1.3.20.1 is its latest, checked 2026-11-05); the app moves to a new engine release once it has been
+  tested. A scanner will flag more of the engine's libraries: on 2026-11-05, [OSV.dev](https://osv.dev) listed 183
+  advisories on 22 of its 132 Python packages (`node bench/osv.mjs --list` prints them). Grouped by what each one
+  needs:
+  - *A crafted model file in the app's folder*, the same condition as CTranslate2's: PyTorch 2.7.1
+    ([CVE-2026-24747](https://github.com/advisories/GHSA-63cw-57p8-fm3p), an untrusted checkpoint), sentencepiece
+    0.2.0, and the model loaders of NeMo, Lightning, mamba-ssm, flash-attn, Accelerate and Diffusers.
+  - *A request to a server in the engine*: vLLM 0.9.1 (65 of the 183), Starlette, Werkzeug, Lightning's app server,
+    protobuf's JSON parser, OpenTelemetry. Nothing listens on a port, so none of them gets a request.
+  - *A crafted image, document or data file*: Pillow 11.1.0 (55), pyarrow, datasets, fsspec, NLTK. The app opens
+    no such file.
+  - *A hostile download server*: urllib3 1.26.18 and requests 2.32.3. They take part only if the engine fetches a
+    model itself (the app downloads each one first, with Windows' curl), from its fixed model servers over HTTPS,
+    and a file that isn't the pinned one is rejected, so the worst a server could do is make a download fail or use
+    too much memory.
+  - *Another account on the same PC*: filelock 3.18.0 (lock files) and a temporary file in requests.
+  - PyTorch's others are crafted inputs to a few functions; it only sees the PC's audio, its captions and the
+    hash-checked models.
 - **Model licenses.** For business use, pick **Balanced** or **Accurate** (a GPU use % that gives one, on cards with
   6 GB or more). Fast, Lite and CPU use NLLB-200, which is licensed for non-commercial use only. The app itself is
   MIT-licensed. Check each license below with your legal team.
@@ -168,5 +186,7 @@ draws the overlay.
   `python bench/live_accuracy.py bench/out/NAME.jsonl` scores a bench run's live line as the overlay shows it;
   `python bench/english.py` makes English test audio for it with the Windows voices, and with
   `--words bench/out/english.words.json` it also tells how long after each word is said it is on screen.
+  `sh bench/langs.sh` measures recognition per language on Google's FLEURS read-speech clips (`bench/fleurs.py`
+  fetches 12 per language), ~6 min a language; run it again after a stop and it goes on where it stopped.
 - `docs/` holds the README images, this page and the [runbook](runbook.md) (releases, rollback, reports); `.github/` the issue form, the [security policy](../.github/SECURITY.md), the tests
   workflow and Dependabot (keeps the workflow's pinned actions current).

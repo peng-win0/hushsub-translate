@@ -6,7 +6,7 @@
 Streams, videos, meetings, games and VRChat. Free, offline, no account, no subscription.</p>
 
 Hushsub Translate listens to a browser or app, writes what is said, translates it, and shows it over the screen like
-YouTube's CC, live, in sixteen languages. It all runs on your own PC: no audio or text ever leaves it.
+YouTube's CC, live, in thirty languages. It all runs on your own PC: no audio or text ever leaves it.
 
 [![Download for Windows](https://img.shields.io/badge/Download-Windows%2010%2F11-2ea44f?style=for-the-badge&logo=windows)](https://github.com/peng-win0/hushsub-translate/archive/refs/heads/main.zip)
 
@@ -43,11 +43,13 @@ the ZIP, **Extract all**, and open `Hushsub Translate.bat` in the extracted fold
 
 1. Play the video, stream or meeting in your browser, or in VRChat, Discord, Zoom, Teams or VLC.
 2. Open **Hushsub Translate** and press **Start**. Captions appear over the video.
-3. Press **Stop** when you are done. **Start** brings them back at once.
+3. Press **Stop** when you are done. **Start** within a minute brings them back at once; after that the graphics card
+   is let go so it can sleep, and Start loads them again (a little slower).
 
 - **Languages:** English, Chinese (simplified or traditional), Spanish, French, Portuguese, Russian, Indonesian,
-  German, Japanese, Vietnamese, Turkish, Korean, Italian, Polish and Dutch, translated either way. Japanese → English
-  is the best tuned.
+  German, Japanese, Vietnamese, Turkish, Korean, Italian, Polish, Dutch, Azerbaijani, Bulgarian, Catalan, Croatian,
+  Danish, Finnish, Hebrew, Hungarian, Kazakh, Norwegian, Slovak, Slovenian, Swedish and Tagalog, translated either
+  way. Japanese → English is the best tuned.
 - **Listen to:** Auto follows the open browser. Pick an app, **All PC sound** for everything, or **Microphone**.
 - **Caption style:** YouTube's options. Drag the captions anywhere, and scroll the mouse wheel over them to read
   lines you missed.
@@ -76,9 +78,14 @@ Measured on an RTX 4060 Laptop. NLLB is licensed for non-commercial use only: fo
 ## Troubleshooting
 
 - **No captions:** make sure the sound plays in what **Listen to** picks, or pick **All PC sound**, then click **Show log**.
+- **Microphone: "Windows blocks the microphone":** in Windows Settings > Privacy & security > Microphone, turn on
+  **Microphone access** and **Let desktop apps access your microphone**. Captions begin then.
 - **CPU mode on an NVIDIA card:** other apps hold the graphics memory. Close them, then Stop and Start.
 - **A download failed:** press **Start** or **Resume** again; it continues where it stopped. If a DNS filter blocks
   it (Cloudflare WARP for Families, NextDNS, Pi-hole), allow `contabostorage.com` until the install finishes.
+- **Private Captions 1.4 or older finds no update:** the page it checks is gone. Download the ZIP above and open
+  `Hushsub Translate.bat`: the new version installs beside the old one and downloads the engine again. Then the old
+  folder and its shortcuts can go.
 - **Still stuck:** About → **Send feedback** opens a problem report with your setup filled in, never your captions.
 
 ## Privacy

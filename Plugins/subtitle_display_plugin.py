@@ -66,11 +66,24 @@ _LANGUAGE_NAMES = {"jpn_Jpan": "Japanese", "eng_Latn": "English", "kor_Hang": "K
                    "zho_Hant": "Chinese (Traditional)", "ind_Latn": "Indonesian", "spa_Latn": "Spanish",
                    "por_Latn": "Portuguese", "fra_Latn": "French", "deu_Latn": "German", "rus_Cyrl": "Russian",
                    "vie_Latn": "Vietnamese", "tur_Latn": "Turkish", "ita_Latn": "Italian", "pol_Latn": "Polish",
-                   "nld_Latn": "Dutch"}  # the app's languages, MiLMMT's names
+                   "nld_Latn": "Dutch", "arb_Arab": "Arabic", "azj_Latn": "Azerbaijani", "bul_Cyrl": "Bulgarian",
+                   "ben_Beng": "Bengali", "cat_Latn": "Catalan", "ces_Latn": "Czech", "dan_Latn": "Danish",
+                   "ell_Grek": "Greek", "pes_Arab": "Persian", "fin_Latn": "Finnish", "heb_Hebr": "Hebrew",
+                   "hin_Deva": "Hindi", "hrv_Latn": "Croatian", "hun_Latn": "Hungarian", "kaz_Cyrl": "Kazakh",
+                   "khm_Khmr": "Khmer", "lao_Laoo": "Lao", "zsm_Latn": "Malay", "mya_Mymr": "Burmese",
+                   "nob_Latn": "Norwegian", "ron_Latn": "Romanian", "slk_Latn": "Slovak", "slv_Latn": "Slovenian",
+                   "swe_Latn": "Swedish", "tam_Taml": "Tamil", "tha_Thai": "Thai", "tgl_Latn": "Tagalog",
+                   "urd_Arab": "Urdu", "uzn_Latn": "Uzbek", "yue_Hant": "Cantonese"}  # every MiLMMT-46 language, its names
 # Spoken "Auto" (profile current_language: auto): Whisper's detected language -> the translator's code
 WHISPER_TO_NLLB = {"ja": "jpn_Jpan", "en": "eng_Latn", "ko": "kor_Hang", "zh": "zho_Hans", "id": "ind_Latn",
                    "es": "spa_Latn", "pt": "por_Latn", "fr": "fra_Latn", "de": "deu_Latn", "ru": "rus_Cyrl",
-                   "vi": "vie_Latn", "tr": "tur_Latn", "it": "ita_Latn", "pl": "pol_Latn", "nl": "nld_Latn"}
+                   "vi": "vie_Latn", "tr": "tur_Latn", "it": "ita_Latn", "pl": "pol_Latn", "nl": "nld_Latn",
+                   "ar": "arb_Arab", "az": "azj_Latn", "bg": "bul_Cyrl", "bn": "ben_Beng", "ca": "cat_Latn",
+                   "cs": "ces_Latn", "da": "dan_Latn", "el": "ell_Grek", "fa": "pes_Arab", "fi": "fin_Latn",
+                   "he": "heb_Hebr", "hi": "hin_Deva", "hr": "hrv_Latn", "hu": "hun_Latn", "kk": "kaz_Cyrl",
+                   "km": "khm_Khmr", "lo": "lao_Laoo", "ms": "zsm_Latn", "my": "mya_Mymr", "no": "nob_Latn", "nn": "nob_Latn",
+                   "ro": "ron_Latn", "sk": "slk_Latn", "sl": "slv_Latn", "sv": "swe_Latn", "ta": "tam_Taml",
+                   "th": "tha_Thai", "tl": "tgl_Latn", "ur": "urd_Arab", "uz": "uzn_Latn", "yue": "yue_Hant"}
 # Caption style picked in the app (CaptionsApp.ps1): size %, color, background %. Re-read when the file changes.
 APP_SETTINGS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "app-settings.json")
 # YouTube's caption options, same names and values as in the app
@@ -266,6 +279,46 @@ def fit_end(text, width, measure):
     return "…" + text[lo:]
 
 
+_RTL = re.compile("[֐-ࣿיִ-﷿ﹰ-﻿]")  # Hebrew and Arabic letters
+_PUNCT = "[^\\w\\s֑-ׇؐ-ًؚ-ٰٟۖ-ۭ]*"  # not letters, nor their vowel marks
+_EDGES = re.compile(f"^({_PUNCT})(.*?)({_PUNCT})$", re.S)
+_ON_NUMBER = "#$%°‰₪€£¥¢"  # signs that stay on their number's side ("50%", "$5"; bidi rule W5)
+
+
+def _flip(m):  # a piece's end punctuation moved to its other side, but not a sign that belongs to a number
+    lead, core, end = m[1], m[2], m[3]
+    if core[:1].isdigit():
+        keep = len(lead) - len(lead.rstrip(_ON_NUMBER))
+        lead, core = lead[:len(lead) - keep], lead[len(lead) - keep:] + core
+    if core[-1:].isdigit():
+        keep = len(end) - len(end.lstrip(_ON_NUMBER))
+        core, end = core + end[:keep], end[keep:]
+    return end + core + lead
+
+
+def visual_order(line):
+    """A line's pieces in shown order, left to right: the line itself, or for a right-to-left line (its first letter
+    Hebrew or Arabic, or at least half its letters) its words from last to first, each with its end punctuation moved
+    to its left. Runs of left-to-right words (Latin, numbers) stay one piece. The overlay draws each piece on its own:
+    Windows orders the letters inside a piece, but given a whole line, lays it out left to right (or word by word, in a
+    font without Hebrew or Arabic, where Tk splits the line by font), so the words and punctuation came out in the
+    wrong order. The share of letters covers a wrapped row of a Hebrew caption that starts with a Latin word."""
+    # ponytail: not the full Unicode bidi algorithm (brackets aren't mirrored; a left-to-right line keeps an
+    # embedded right-to-left phrase's words in typed order; "ה-iPhone" stays one piece in typed order). Enough for
+    # whole Hebrew or Arabic captions.
+    letters = re.findall(r"[^\W\d_]", line)
+    rtl = sum(map(bool, map(_RTL.match, letters)))
+    if not letters or not (_RTL.match(letters[0]) or 2 * rtl >= len(letters)):
+        return [line]
+    runs = []
+    for word in line.split():  # a word of only punctuation stays its own piece
+        if runs and re.search(r"\w", word) and re.search(r"\w", runs[-1]) and not _RTL.search(word + runs[-1]):
+            runs[-1] += " " + word
+        else:
+            runs.append(word)
+    return [_EDGES.sub(_flip, run) for run in reversed(runs)]
+
+
 # A whole phrase (1-40 chars) said 3+ times in a row, separated by spaces/punctuation.
 # Needs a separator so normal words ("book") are untouched; 2x ("hello hello") is left alone.
 # Bounded lengths keep the regex fast on long looping hallucinations.
@@ -283,7 +336,9 @@ _FILLER = re.compile(
 _SOUND_TAGS = [
     (re.compile(r"^[\s(（【\[]*(?:爆?笑|[あア]?(?:は|ハ){2,}|(?:ふ|フ){2,}|[wｗ]{3,})[\s)）】\]!！?？…。、ー〜]*$"), "[laughs]"),
     (re.compile(r"^[\s(（【\[]*(?:♪|♫|🎵|音楽|BGM|〜|~)+[\s)）】\]]*$"), "[music]"),
-    (re.compile(r"^[\s(（【\[]*(?:拍手|8{3,}|８{3,})+[\s)）】\]!！]*$"), "[applause]"),  # 8888 = パチパチ
+    # 8888 = パチパチ. {3,}+ is possessive: plain {3,} inside (...)+ splits a long run of 8s every possible way
+    # before failing ("888...8。"), and freezes the engine for minutes
+    (re.compile(r"^[\s(（【\[]*(?:拍手|8{3,}+|８{3,}+)+[\s)）】\]!！]*$"), "[applause]"),
 ]
 _TAGS = {tag for _, tag in _SOUND_TAGS}
 
@@ -329,7 +384,7 @@ def load_fake_lines(*paths):
         try:
             with open(path, encoding="utf-8-sig") as f:  # Notepad may save it with a BOM
                 keys.update(_line_key(line) for line in f if not line.lstrip().startswith("#"))
-        except OSError:
+        except (OSError, UnicodeDecodeError):  # saved as ANSI or Shift-JIS: skipped, not a plugin that fails to load
             pass
     keys.discard("")
     return keys
@@ -366,7 +421,7 @@ def load_glossary(path):
     try:
         with open(path, encoding="utf-8-sig") as f:  # Notepad may save it with a BOM
             pairs = dict(line.split("=", 1) for line in f if "=" in line and not line.lstrip().startswith("#"))
-    except OSError:
+    except (OSError, UnicodeDecodeError):  # else it fails again on every line, and nothing is translated
         return None
     pairs = {k.strip().lower(): v.strip() for k, v in pairs.items() if k.strip()}
     if not pairs:
@@ -988,12 +1043,21 @@ class SubtitleDisplayPlugin(Plugins.Base):
                 small = isinstance(line, Original)  # the spoken line or the hint: one row, the hint font, as written
                 font = self.cc_hint_font if small else self.cc_font
                 line = fit_end(line, width - px(60), font.measure) if small else line.upper() if caps else line
-                for dx, dy, c in () if small else edges:
-                    self.text_canvas.create_text(width // 2 + dx, y + dy, text=line, fill=c, font=font,
-                                                 anchor="s", tags="cc")
-                t = self.text_canvas.create_text(width // 2, y, text=line, fill=self.cc_color, font=font,
-                                                 anchor="s", tags="cc")
-                x1, y1, x2, y2 = self.text_canvas.bbox(t)
+                pieces, xs, anchor = visual_order(line), [width // 2], "s"
+                if len(pieces) > 1:  # right to left: each word placed on its own, centered together
+                    gap, xs, anchor = font.measure(" "), [], "sw"
+                    x = width // 2 - (sum(map(font.measure, pieces)) + gap * (len(pieces) - 1)) // 2
+                    for piece in pieces:
+                        xs.append(x)
+                        x += font.measure(piece) + gap
+                ids = []
+                for x, piece in zip(xs, pieces):
+                    for dx, dy, c in () if small else edges:
+                        self.text_canvas.create_text(x + dx, y + dy, text=piece, fill=c, font=font,
+                                                     anchor=anchor, tags="cc")
+                    ids.append(self.text_canvas.create_text(x, y, text=piece, fill=self.cc_color, font=font,
+                                                            anchor=anchor, tags="cc"))
+                x1, y1, x2, y2 = self.text_canvas.bbox(*ids)
                 if self.cc_alpha > 0:
                     self.canvas.create_rectangle(x1 - pad, y1, x2 + pad, y2, fill=self.cc_bar, outline="", tags="cc")
                 left, right, y = min(left, x1), max(right, x2), y1  # bars touch, like YouTube's stacked line boxes
@@ -1394,6 +1458,8 @@ class SubtitleDisplayPlugin(Plugins.Base):
         the chatbox's 144 characters and keeps messages 1.5 s apart. Send-only, nothing listens."""
         if not self.chatbox or not text or text in _TAGS:  # a sound ([music] in the world) isn't something said
             return
+        if getattr(self, "cc_paused", False):  # a line finished after Stop, from sound heard before it: not shown
+            return
         if seq is not None:
             if seq < self._chat_seq:  # ponytail: a line that finished after a newer one is skipped, not reordered
                 return  # (the chatbox shows one message: an older one last would hide the newest)
@@ -1436,7 +1502,8 @@ class SubtitleDisplayPlugin(Plugins.Base):
         if is_final and self._display_lock is not None:
             with self._display_lock:
                 self._final_cut = self._seq  # drafts still being translated are outdated now
-        translated_text = tag or collapse_repeats(self._select_display_text(pipeline_text, result_obj))
+        # the line as said, without the made-up outro (when nothing is translated, it's what is shown)
+        translated_text = tag or collapse_repeats(self._select_display_text(pipeline_text, dict(result_obj, text=source_text)))
         if is_final and self.transcriptions and self.transcriptions[-1] == translated_text:
             # Same line again (e.g. a looping segment): just clear the live line, don't stack a duplicate.
             self.current_intermediate_transcription = None

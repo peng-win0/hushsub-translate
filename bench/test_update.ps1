@@ -26,7 +26,7 @@ if (Test-Path $t) { Remove-Item $t -Recurse -Force }
 [void](New-Item -ItemType Directory "$t\home\app")
 Copy-Item "$src\app\update.ps1" "$t\home\app\"
 Set-Content "$t\home\CaptionsApp.ps1" "# old"
-[IO.File]::WriteAllLines("$t\home\app\glossary.txt", [string[]]("MyWord = Mine"))
+[IO.File]::WriteAllLines("$t\home\app\glossary.txt", [string[]]("MyWord = Min$([char]0xE9)"), [Text.Encoding]::Default)  # saved as ANSI by hand
 [IO.File]::WriteAllLines("$t\home\version.txt", [string[]]"1.0.0")
 
 $err = Run (Release "2.0.0" $true) "2.0.0"
@@ -37,7 +37,7 @@ $lock = [IO.File]::Open("$t\home\app\update.ps1", "Open", "Read", "Read")  # hel
 $err = Run (Release "2.0.0" $false) "2.0.0"
 $lock.Close()
 Check ($err -like "*nothing was changed*" -and "$(Get-Content "$t\home\version.txt")" -eq "1.0.0") "a file in use: nothing changed ($err)"
-Check ("$(Lines "$t\home\app\glossary.txt")" -eq "MyWord = Mine") "...and the user's words are restored"
+Check ("$([IO.File]::ReadAllLines("$t\home\app\glossary.txt", [Text.Encoding]::Default))" -eq "MyWord = Min$([char]0xE9)") "...and the user's words are restored"
 $err = Run (Release "2.0.0" $false) "2.1.0"
 Check ($err -like "*isn't version 2.1.0*") "a zip of another version is refused"
 
@@ -48,10 +48,10 @@ Check ((Get-FileHash "$t\home\CaptionsApp.ps1").Hash -eq (Get-FileHash "$src\Cap
 Check (Test-Path "$t\home\app\Profiles\balanced.yaml") "new folders created"
 Check (-not (Test-Path "$t\home\.update-backup")) "the backup doesn't stay after a good update"
 $g = Lines "$t\home\app\glossary.txt"
-Check ("$g" -eq "MyWord = Mine NewWord = New") "glossary keeps the user's line and adds only new words ($g)"
+Check ("$g" -eq "MyWord = Min$([char]0xE9) NewWord = New") "glossary keeps the user's line and adds only new words ($g)"
 Check (-not (Test-Path "$t\home\.update")) "temp folder cleaned"
 
 $err = Run (Release "2.0.0" $false) "2.0.0"
-Check ("$(Lines "$t\home\app\glossary.txt")" -eq "MyWord = Mine NewWord = New") "the same version again changes nothing"
+Check ("$(Lines "$t\home\app\glossary.txt")" -eq "MyWord = Min$([char]0xE9) NewWord = New") "the same version again changes nothing"
 Remove-Item $t -Recurse -Force
 "ALL PASSED"

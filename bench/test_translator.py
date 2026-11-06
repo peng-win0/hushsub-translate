@@ -56,6 +56,9 @@ t.glossary_file = gpath  # the shipped glossary.txt is only a template
 assert sdp.load_glossary(gpath)("Laws on aws, AWSの話, Cooper Netties.") == "Laws on Amazon Web Services, Amazon Web Servicesの話, Kubernetes.", \
     sdp.load_glossary(gpath)("Laws on aws, AWSの話, Cooper Netties.")  # whole Latin words in any case; inside Japanese too
 assert sdp.load_glossary(os.devnull) is None
+with open(gpath + ".sjis", "w", encoding="cp932") as f:  # Notepad's ANSI on a Japanese PC: not UTF-8
+    f.write("クロニー = Kronii\n")
+assert sdp.load_glossary(gpath + ".sjis") is None and sdp.load_fake_lines(gpath + ".sjis") == set()
 t.submit(6, "クロニーとスパチャ", True, JA)                               # glossary.txt applied before translation
 wait(lambda: 6 in finals)
 assert finals[6] == "T:Kroniiとスーパーチャット", finals[6]

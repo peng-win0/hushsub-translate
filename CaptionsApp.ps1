@@ -88,6 +88,10 @@ $languages = [ordered]@{
     French = "fr", "fra_Latn"; Portuguese = "pt", "por_Latn"; Russian = "ru", "rus_Cyrl"; Indonesian = "id", "ind_Latn"
     German = "de", "deu_Latn"; Japanese = "ja", "jpn_Jpan"; Vietnamese = "vi", "vie_Latn"; Turkish = "tr", "tur_Latn"
     Korean = "ko", "kor_Hang"; Italian = "it", "ita_Latn"; Polish = "pl", "pol_Latn"; Dutch = "nl", "nld_Latn"
+    Azerbaijani = "az", "azj_Latn"; Bulgarian = "bg", "bul_Cyrl"; Catalan = "ca", "cat_Latn"; Croatian = "hr", "hrv_Latn"
+    Danish = "da", "dan_Latn"; Finnish = "fi", "fin_Latn"; Hebrew = "he", "heb_Hebr"; Hungarian = "hu", "hun_Latn"
+    Kazakh = "kk", "kaz_Cyrl"; Norwegian = "no", "nob_Latn"; Slovak = "sk", "slk_Latn"; Slovenian = "sl", "slv_Latn"
+    Swedish = "sv", "swe_Latn"; Tagalog = "tl", "tgl_Latn"
 }
 # Caption style: YouTube's caption options and choices, same names. Saved in app-settings.json; the caption window
 # (the plugin) applies changes live. Colors and fonts are the same in the plugin.
@@ -127,7 +131,6 @@ $script:running = if ($saved) { $saved.running } else { $null }  # mode of the c
 $script:restart = $false  # start again (new budget / step down) once the running engine has exited
 $script:startKey = $null  # the settings the running captions started with: a paused engine resumes only with the same
 $script:pausedAt = [DateTime]::Now
-$script:preload = [bool]($saved -and $saved.running)  # captions were used before: load them as the app opens, paused
 $script:ceiling = $null   # Auto: best mode allowed after a step-down (reset by Start and budget changes)
 $script:note = ""         # why Auto stepped down
 $script:full = 0          # checks in a row with the GPU memory full
@@ -217,7 +220,7 @@ function Start-Update($apply) {
         -ArgumentList ("-NoProfile -ExecutionPolicy Bypass -File `"$PSScriptRoot\app\update.ps1`"" + $(if ($apply) { " -Apply" }))
 }
 
-function Start-Captions($m, [switch]$Paused) {
+function Start-Captions($m) {
     $script:running = $m
     $script:full = 0  # a count left from the last run must not cut this one's three checks short
     Save-Settings
@@ -229,20 +232,21 @@ function Start-Captions($m, [switch]$Paused) {
     $script:app = Resolve-Browser
     $script:startKey = Start-Key $script:app
     $yamlPath = "$PSScriptRoot\app\Profiles\$($modes[$m].Profile).yaml"
+    # the language code quoted: YAML reads a bare no (Norwegian) as false
     $yaml = (Get-Content -LiteralPath $yamlPath -Encoding UTF8) -replace '^realtime: .*', "realtime: $("$([bool]$live.IsChecked)".ToLower())" `
-        -replace '^current_language: .*', "current_language: $($from[0])" -replace '^src_lang: .*', "src_lang: $($from[1])" -replace '^trg_lang: .*', "trg_lang: $($to[1])"
+        -replace '^current_language: .*', "current_language: '$($from[0])'" -replace '^src_lang: .*', "src_lang: $($from[1])" -replace '^trg_lang: .*', "trg_lang: $($to[1])"
     [IO.File]::WriteAllLines($yamlPath, [string[]]$yaml)  # UTF-8 without BOM
-    Remove-Item -LiteralPath ".captions-window", ".captions-stats", ".captions-failed", ".captions-log", ".captions-download", ".captions-ready", ".captions-restart" -ErrorAction SilentlyContinue
-    if ($Paused) { Pause-Captions } else { Remove-Item -LiteralPath ".captions-paused" -ErrorAction SilentlyContinue }
+    Remove-Item -LiteralPath ".captions-window", ".captions-stats", ".captions-failed", ".captions-log", ".captions-download", ".captions-ready", ".captions-restart", ".captions-mic-blocked" -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath ".captions-paused" -ErrorAction SilentlyContinue
     $ps = "powershell -NoLogo -NoProfile -NoExit -ExecutionPolicy Bypass -File `"$PSScriptRoot\app\captions.ps1`"" +
           " -ProfilePath `"app\Profiles\$($modes[$m].Profile).yaml`" -App $script:app -Title `"Hushsub Translate - $m (close to stop)`""
     # conhost: a classic console window we can hide, show and close gracefully (a Windows Terminal tab can't)
     $script:conhost = Start-Process conhost.exe -ArgumentList $ps -WindowStyle Hidden -PassThru
 }
 
-function Start-Best([switch]$Paused) {
+function Start-Best {
     $gpu = Get-Gpu
-    Start-Captions (Pick-Mode $script:budget $(if (-not (Gpu-Problem $gpu)) { $gpu })) -Paused:$Paused
+    Start-Captions (Pick-Mode $script:budget $(if (-not (Gpu-Problem $gpu)) { $gpu }))
 }
 
 function Pause-Captions {
@@ -298,7 +302,8 @@ function Caption-Language {
     if ($script:captionLang -ne "Auto") { return $script:captionLang }
     $ui = [Globalization.CultureInfo]::CurrentUICulture
     if ($ui.Name -match '^zh-(Hant|TW|HK|MO)') { return "Chinese (Traditional)" }
-    $hit = @($languages.Keys | Where-Object { $languages[$_][0] -eq $ui.TwoLetterISOLanguageName })
+    $iso = switch ($ui.TwoLetterISOLanguageName) { { $_ -in "nb", "nn" } { "no" } "fil" { "tl" } default { $_ } }  # Whisper's codes
+    $hit = @($languages.Keys | Where-Object { $languages[$_][0] -eq $iso })
     if ($hit) { $hit[0] } else { "English" }
 }
 
@@ -995,14 +1000,24 @@ $showOriginal.IsChecked = [bool]($saved -and $saved.showOriginal)  # off unless 
 $showOriginal.Add_Click({ Save-Settings })
 # Your words = glossary.txt without its # help lines (kept on Save). The plugin re-reads it on the next line.
 $wordsBox = $win.FindName("Words"); $wordsNote = $win.FindName("WordsNote")
-function Read-Words { @(Get-Content -LiteralPath "app\glossary.txt" -Encoding UTF8 -ErrorAction SilentlyContinue) }
+function Read-Words {
+    $f = "$PSScriptRoot\app\glossary.txt"
+    try { [IO.File]::ReadAllLines($f, (New-Object Text.UTF8Encoding $false, $true)) }  # throws on bytes that aren't UTF-8
+    catch [Text.DecoderFallbackException] {
+        # saved by hand as ANSI or Shift-JIS (the plugin skips it then): read in the PC's code page and saved as UTF-8
+        # at once, so the plugin uses it and no later save turns its words into U+FFFD
+        $t = [IO.File]::ReadAllLines($f, [Text.Encoding]::Default)
+        try { [IO.File]::WriteAllLines($f, $t) } catch {}
+        $t
+    } catch {}  # none yet, or locked
+}
 $wordsBox.Text = @(Read-Words | Where-Object { $_.Trim() -and -not $_.TrimStart().StartsWith("#") }) -join "`r`n"
 function Word-Lines([string]$text) { @($text -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
 $script:savedWords = (Word-Lines $wordsBox.Text) -join "`n"  # closing the window asks before losing edits to it
-function Save-Words([string]$text) {
+function Save-Words([string]$text, [switch]$Force) {
     $lines = @(Word-Lines $text)
     $bad = @($lines | Where-Object { -not $_.StartsWith("#") -and $_ -notmatch '^[^=]*\S[^=]*=' })
-    if ($bad) { $wordsNote.Text = "Needs heard = shown: $($bad[0])"; return }
+    if ($bad -and -not $Force) { $wordsNote.Text = "Needs heard = shown: $($bad[0])"; return }
     $help = @(Read-Words | Where-Object { $_.TrimStart().StartsWith("#") })
     [IO.File]::WriteAllLines("$PSScriptRoot\app\glossary.txt", [string[]]($help + $lines))  # UTF-8 without BOM
     $wordsNote.Text = if ($lines) { "Saved." } else { "All deleted." }
@@ -1342,8 +1357,8 @@ Fill-Table $win.FindName("LicenseRows") @(
     , @("ffmpeg (from the engine)", "All modes", "GPLv3: obligations apply only when redistributing")
     , @("Google Sans Flex", "The app's font", "SIL Open Font License")) -head
 function Current-Mode {
-    # the mode captions run in, else the one Start would pick
-    if ($script:running) { return $script:running }
+    # the mode captions run in, else the one Start would pick ($script:running stays the last one that ran)
+    if ($script:running -and ((Ours-Open) -or (Engine-Running))) { return $script:running }
     if ($script:budget -eq "Auto") { Pick-Mode "Auto" $gpu } else { Pick-Mode $script:budget $whole }
 }
 function Show-About {
@@ -1461,9 +1476,14 @@ $tick = {
     $updating = $script:updater -and -not $script:updater.HasExited
     if ($script:updater -and -not $updating -and (Test-Path -LiteralPath ".update-done")) {
         # a new version is installed: reopen this window from the new files (it shows "Updated to ...")
+        $script:updater = $null  # once: if anything below fails, not a new window every second
+        # unsaved words are saved first, as they are, even a line still missing its "=" (the plugin skips it, the box
+        # shows it again): no question, nobody may be there. Unedited, the file stays as it is: it may have been edited
+        # in Notepad, or the update added lines to it
+        if (((Word-Lines $wordsBox.Text) -join "`n") -ne $script:savedWords) { try { Save-Words $wordsBox.Text -Force } catch { Note-Error $_ } }
+        $script:savedWords = (Word-Lines $wordsBox.Text) -join "`n"
         if (Test-Path -LiteralPath $exePath) { Start-Process -FilePath $exePath }
-        else { Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSScriptRoot\CaptionsApp.ps1`"" }
-        Save-Words $wordsBox.Text; $script:savedWords = (Word-Lines $wordsBox.Text) -join "`n"  # no question: nobody may be there
+        else { Start-Process "$env:WINDIR\System32\conhost.exe" -ArgumentList "--headless `"$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe`" -NoProfile -ExecutionPolicy Bypass -File `"$PSScriptRoot\CaptionsApp.ps1`"" }  # as the shortcut: no PowerShell window
         $win.Close()
         return
     }
@@ -1476,10 +1496,6 @@ $tick = {
     if ($script:restart -and -not $open -and -not $engine) { $script:restart = $false; Start-Best; $open = Ours-Open }
     # Install done: on to the first captions (their models download now), no second press and wait
     if ($script:installer -and -not $installing -and (Engine-Installed) -and -not $open -and -not $engine) { $script:installer = $null; Start-Best; $open = Ours-Open }
-    if ($script:preload -and $win.IsVisible) {
-        $script:preload = $false  # once the window shows, so it opens as fast as before
-        if ((Engine-Installed) -and -not $open -and -not $engine -and -not $installing -and -not $updating) { Start-Best -Paused; $open = Ours-Open }
-    }
     $paused = $open -and (Test-Path -LiteralPath ".captions-paused")
     $on = ($open -and -not $paused) -or $script:restart  # captions on, or about to be
     if ($on -and $engine -and ++$script:ticks % 5 -eq 0) { Check-Auto }
@@ -1545,6 +1561,8 @@ $tick = {
         elseif ($open -and $engine) { "On", "On: $script:running", "Captions appear when someone speaks." }
         elseif ($failed) { "Bad", ("$(Get-Content -LiteralPath '.captions-failed' -ErrorAction SilentlyContinue)" -replace '^1?$', "The engine keeps crashing"), "See the log below. Press Stop, then Start." }
         elseif ($open -and $pick -eq "system") { "Busy", "Waiting for speakers", "Captions begin once Windows has speakers or headphones." }
+        elseif ($open -and $pick -eq "mic" -and (Test-Path -LiteralPath ".captions-mic-blocked")) {
+            "Bad", "Windows blocks the microphone", "In Settings > Privacy & security > Microphone, turn on Microphone access and Let desktop apps access your microphone. Captions begin then." }
         elseif ($open -and $pick -eq "mic") { "Busy", "Waiting for a microphone", "Captions begin once Windows has a microphone." }
         elseif ($open) { "Busy", "Waiting for $name", "Captions begin once $name is open." }
         elseif ($engine) { "On", "On", "Another caption engine is running: close it to stop." }
@@ -1564,8 +1582,10 @@ $tick = {
     # updates: checked daily; with auto-update on, a newer version installs once captions are off
     $latest = "$(Get-Content -LiteralPath '.update-latest' -ErrorAction SilentlyContinue)".Trim()
     $newer = $latest -and $(try { [version]$latest -gt [version]$version } catch { $false })
-    # a paused engine holds GPU memory: it closes after 10 minutes off, or for an update
-    if ($paused -and -not $script:stopping -and ($newer -or ([DateTime]::Now - $script:pausedAt).TotalMinutes -ge 10)) { Stop-Captions }
+    # a paused engine keeps the GPU awake (no sleep, battery): it closes after a minute off, or for an update. Not
+    # while it still loads: the first start converts its model for minutes, and closing would throw that away
+    if ($paused -and -not (Test-Path -LiteralPath ".captions-ready")) { $script:pausedAt = [DateTime]::Now }
+    if ($paused -and -not $script:stopping -and ($newer -or ([DateTime]::Now - $script:pausedAt).TotalMinutes -ge 1)) { Stop-Captions }
     $busy = $open -or $engine -or $installing
     if ($autoUpdate.IsChecked -and ++$script:updateTicks % 86400 -eq 0) { Start-Update $false }
     if ($autoUpdate.IsChecked -and $newer -and -not $busy -and -not $updating -and $script:applied -ne $latest) { $script:applied = $latest; Start-Update $true; $updating = $true }
