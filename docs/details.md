@@ -118,9 +118,11 @@ engine comes as one prebuilt package from Whispering Tiger, so until then nothin
   overflow, CVSS 7.8) and [CVE-2026-102567](https://nvd.nist.gov/vuln/detail/CVE-2026-102567) (out-of-bounds read,
   CVSS 6.1). Both need a crafted model file. The app loads only the hash-checked models above (MiLMMT is converted
   from its checked download on the PC), so they are out of reach unless someone can already write to the app's
-  folder, and could then replace the engine itself. A scanner will flag more of the engine's libraries: on
-  2026-11-04, [OSV.dev](https://osv.dev) listed 183 advisories on 22 of its 132 Python packages
-  (`node bench/osv.mjs --list` prints them). Grouped by what each one needs:
+  folder, and could then replace the engine itself. The engine's libraries are updated by Whispering Tiger's
+  releases (1.3.20.1 is its latest, checked 2026-11-05); the app moves to a new engine release once it has been
+  tested. A scanner will flag more of the engine's libraries: on 2026-11-05, [OSV.dev](https://osv.dev) listed 183
+  advisories on 22 of its 132 Python packages (`node bench/osv.mjs --list` prints them). Grouped by what each one
+  needs:
   - *A crafted model file in the app's folder*, the same condition as CTranslate2's: PyTorch 2.7.1
     ([CVE-2026-24747](https://github.com/advisories/GHSA-63cw-57p8-fm3p), an untrusted checkpoint), sentencepiece
     0.2.0, and the model loaders of NeMo, Lightning, mamba-ssm, flash-attn, Accelerate and Diffusers.
@@ -129,15 +131,12 @@ engine comes as one prebuilt package from Whispering Tiger, so until then nothin
   - *A crafted image, document or data file*: Pillow 11.1.0 (55), pyarrow, datasets, fsspec, NLTK. The app opens
     no such file.
   - *A hostile download server*: urllib3 1.26.18 and requests 2.32.3. They take part only if the engine fetches a
-    model itself (the app downloads each one first, with Windows' curl), from the fixed servers above over HTTPS,
+    model itself (the app downloads each one first, with Windows' curl), from its fixed model servers over HTTPS,
     and a file that isn't the pinned one is rejected, so the worst a server could do is make a download fail or use
     too much memory.
   - *Another account on the same PC*: filelock 3.18.0 (lock files) and a temporary file in requests.
   - PyTorch's others are crafted inputs to a few functions; it only sees the PC's audio, its captions and the
     hash-checked models.
-
-  The engine's libraries are updated by Whispering Tiger's releases (1.3.20.1 is its latest, checked 2026-11-03);
-  the app moves to a new engine release once it has been tested.
 - **Model licenses.** For business use, pick **Balanced** or **Accurate** (a GPU use % that gives one, on cards with
   6 GB or more). Fast, Lite and CPU use NLLB-200, which is licensed for non-commercial use only. The app itself is
   MIT-licensed. Check each license below with your legal team.

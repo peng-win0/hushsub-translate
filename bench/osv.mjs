@@ -31,32 +31,48 @@ async function ask(url, body) {
   }
 }
 
+const query = (p, token) => ({ package: { name: p.name, ecosystem: "PyPI" }, version: p.version, page_token: token });
 const hits = [];
 for (let i = 0; i < pkgs.length; i += 500) {
   const chunk = pkgs.slice(i, i + 500);
-  const res = await ask("https://api.osv.dev/v1/querybatch", {
-    queries: chunk.map(p => ({ package: { name: p.name, ecosystem: "PyPI" }, version: p.version })),
-  });
-  res.results.forEach((r, j) => { for (const v of r.vulns || []) hits.push({ pkg: chunk[j], id: v.id }); });
+  const res = await ask("https://api.osv.dev/v1/querybatch", { queries: chunk.map(p => query(p)) });
+  for (const [j, first] of res.results.entries()) {
+    for (let r = first; ; ) {  // a package with many advisories comes back in pages
+      for (const v of r.vulns || []) hits.push({ pkg: chunk[j], id: v.id });
+      if (!r.next_page_token) break;
+      r = (await ask("https://api.osv.dev/v1/querybatch", { queries: [query(chunk[j], r.next_page_token)] })).results[0];
+    }
+  }
 }
 
-// OSV lists one flaw under several ids (GHSA, PYSEC, CVE): group them by shared id, keep the top severity.
+// OSV lists one flaw under several ids (GHSA, PYSEC, CVE). Group a package's records that share any id, merging
+// groups a later record links, and take each flaw's top severity across all packages it appears in.
 const rank = s => ({ CRITICAL: 4, HIGH: 3, MODERATE: 2, LOW: 1 })[s] || 0;
 const names = ["unrated", "low", "moderate", "high", "critical"];
+const norm = n => n.toLowerCase().replace(/[-_.]+/g, "-");
+const records = new Map();
+for (const id of new Set(hits.map(h => h.id))) records.set(id, await ask(`https://api.osv.dev/v1/vulns/${id}`));
+const sevOf = new Map();
+for (const v of records.values()) for (const i of [v.id, ...(v.aliases || [])])
+  sevOf.set(i, Math.max(sevOf.get(i) || 0, rank(v.database_specific?.severity)));
 const byPkg = new Map();
 for (const h of hits) {
-  const v = await ask(`https://api.osv.dev/v1/vulns/${h.id}`);
+  const v = records.get(h.id);
   const ids = [v.id, ...(v.aliases || [])];
   const key = `${h.pkg.name} ${h.pkg.version}`;
-  const groups = byPkg.get(key) || [];
-  let g = groups.find(g => ids.some(i => g.ids.has(i)));
-  if (!g) { g = { ids: new Set(), sev: 0, fixed: new Set(), summary: "" }; groups.push(g); }
-  ids.forEach(i => g.ids.add(i));
-  g.sev = Math.max(g.sev, rank(v.database_specific?.severity));
-  for (const a of v.affected || []) for (const r of a.ranges || []) for (const e of r.events) if (e.fixed) g.fixed.add(e.fixed);
+  let groups = byPkg.get(key) || [];
+  const linked = groups.filter(g => ids.some(i => g.ids.has(i)));
+  const g = { ids: new Set(ids), fixed: new Set(), summary: "" };
+  for (const o of linked) { o.ids.forEach(i => g.ids.add(i)); o.fixed.forEach(f => g.fixed.add(f)); g.summary ||= o.summary; }
+  groups = groups.filter(o => !linked.includes(o)).concat(g);
+  for (const a of v.affected || []) {
+    if (a.package?.ecosystem !== "PyPI" || norm(a.package.name) !== norm(h.pkg.name)) continue;
+    for (const r of a.ranges || []) if (r.type !== "GIT") for (const e of r.events) if (e.fixed) g.fixed.add(e.fixed);
+  }
   g.summary ||= (v.summary || "").replace(/\s+/g, " ");
   byPkg.set(key, groups);
 }
+for (const groups of byPkg.values()) for (const g of groups) g.sev = Math.max(...[...g.ids].map(i => sevOf.get(i) || 0));
 
 let total = 0;
 for (const [key, groups] of [...byPkg].sort()) {
