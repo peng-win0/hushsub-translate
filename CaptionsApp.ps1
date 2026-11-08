@@ -5,7 +5,7 @@
 # hidden console window; its text shows in this window (Show log). Stop closes that console: the same graceful stop as
 # its X. Never force-kills.
 # The window is WPF (part of Windows) styled after Google's apps (Material 3): their colors, shapes and controls, light/dark.
-Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Drawing
+Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
 trap { [void][Windows.MessageBox]::Show("Hushsub Translate failed to start:`n$_", "Hushsub Translate"); break }  # no console to show it
 Add-Type -Name Win -Namespace W -MemberDefinition @'
 [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr h);
