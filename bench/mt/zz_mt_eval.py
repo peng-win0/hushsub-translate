@@ -1,5 +1,5 @@
 # TEMPORARY translation eval (copied into Plugins/ only for a run by bench/mt/mt-run.sh; active while ../mt_eval.flag exists).
-# MiLMMT-46-4B (int8 weights, CTranslate2) vs the live MiLMMT-1B CT2. cat_runner: CAT-Translate (rejected 2026-10-03).
+# MiLMMT-46-4B (int8 weights, CTranslate2) vs the live MiLMMT-1B CT2. (CAT-Translate, rejected 2026-10-03: in git history.)
 # MT_RUNNERS (comma list, default milmmt,milmmt4b) also takes nllb (Fast/Lite/CPU today), milmmt_int8, hymt2, hymt2_8bit.
 # Items: {"ja", "ref"}, or {"text", "src" (an NLLB code), "ref"} for other languages (FLEURS: bench/mt/fleurs_mt.py).
 # mt_eval.flag holds two lines: the sentences JSON path and the output JSON path.
@@ -17,40 +17,6 @@ CACHE = os.path.join(ROOT, ".cache")
 
 def say(msg):
     print(f"MT_EVAL: {msg}", flush=True)
-
-
-def cat_runner(size):
-    import ctranslate2
-    from huggingface_hub import snapshot_download
-    from transformers import AutoTokenizer
-    hf_dir = os.path.join(CACHE, "cat_translate", f"CAT-Translate-{size}")
-    ct2_dir = os.path.join(CACHE, "cat_translate_ct2", f"CAT-Translate-{size}")
-    if not os.path.exists(os.path.join(hf_dir, "config.json")):
-        t = time.time()
-        snapshot_download(f"cyberagent/CAT-Translate-{size}", local_dir=hf_dir,
-                          allow_patterns=["*.json", "*.safetensors", "*.model", "*.jinja", "*.txt"])
-        say(f"{size} downloaded in {time.time() - t:.0f} s")
-    if not os.path.exists(os.path.join(ct2_dir, "model.bin")):
-        files = [f for f in os.listdir(hf_dir) if f.startswith(("tokenizer", "special_tokens", "generation_config"))]
-        ctranslate2.converters.TransformersConverter(hf_dir, copy_files=files).convert(ct2_dir, quantization="bfloat16", force=True)
-        say(f"{size} converted")
-    tok = AutoTokenizer.from_pretrained(hf_dir)
-    ends = [t for t in {tok.eos_token, "<|im_end|>", "<|end|>", "<|eot_id|>", "</s>"}
-            if t and tok.convert_tokens_to_ids(t) not in (None, tok.unk_token_id)]
-    gen = ctranslate2.Generator(ct2_dir, device="cuda", compute_type="bfloat16")
-    say(f"{size} end tokens {ends}, bos {tok.bos_token!r}, chat template sample: "
-        f"{tok.apply_chat_template([{'role': 'user', 'content': 'X'}], tokenize=False, add_generation_prompt=True)!r}")
-
-    def run(text, src=None):  # the model reads the source language itself
-        msg = [{"role": "user", "content": f"Translate the following Japanese text into English.\n\n{text}"}]
-        prompt = tok.apply_chat_template(msg, tokenize=False, add_generation_prompt=True)
-        ids = tok(prompt, add_special_tokens=False)["input_ids"]
-        if tok.bos_token_id is not None and ids[:1] != [tok.bos_token_id]:
-            ids = [tok.bos_token_id] + ids  # Llama-style models degrade without <s>
-        res = gen.generate_batch([tok.convert_ids_to_tokens(ids)], max_length=256, sampling_topk=1,
-                                 include_prompt_in_result=False, end_token=ends)
-        return tok.decode(res[0].sequences_ids[0], skip_special_tokens=True).strip()
-    return run
 
 
 def text_only(hf_dir):
