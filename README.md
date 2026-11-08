@@ -107,6 +107,24 @@ Updates change only the app's scripts, never the engine, models, settings or you
 [Details](https://github.com/peng-win0/hushsub-translate/blob/main/docs/details.md): graphics cards, every setting,
 measurements, using it at work (IT rules, several PCs, update policy, model licenses) and how it works.
 
+**Development.** What's in this repository (file by file: [How it works](docs/details.md#how-it-works)):
+
+- `Hushsub Translate.bat` and `CaptionsApp.ps1`: open the app and draw its window.
+- [`app/`](app): the scripts that install and run the engine and update the app, each mode's engine settings, your
+  words and the font.
+- [`Plugins/`](Plugins): the plugin that translates each line and draws the captions.
+- [`bench/`](bench): the tests and the benchmark kit. `docs/`: the README's pictures, the details page and the
+  [runbook](docs/runbook.md). `.github/`: the tests workflow, the issue form and the security policy. These three
+  aren't in the download.
+
+Installing adds what the repository leaves out: `audioWhisper/` (the Whispering Tiger engine) with a few files of its
+own next to it (`markers/`, `websocket_clients/`, `help.bat`, ...), and `toolchain/` (its ffmpeg). Each mode's first
+start adds its models to `.cache/`. Git ignores all of them.
+
+To try the code here, clone the repository and open `Hushsub Translate.bat` in the clone. It runs there, not in
+`%LOCALAPPDATA%`, and leaves updates to `git pull`. Before a change, run the tests in the runbook's
+[Before any change](docs/runbook.md#before-any-change).
+
 ## License
 
 MIT, see [`LICENSE`](LICENSE). Built on the [Whispering Tiger](https://github.com/Sharrnah/whispering) engine. The

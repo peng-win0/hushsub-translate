@@ -7,6 +7,8 @@ docs/ export-ignore
 .gitignore export-ignore
 .gitattributes export-ignore
 ruff.toml export-ignore
+app/README.md export-ignore
+Plugins/README.md export-ignore
 *.ico binary
 *.png binary
 *.ttf binary
