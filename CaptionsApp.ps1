@@ -1165,6 +1165,9 @@ if (Test-Path -LiteralPath ".install-now") {
 $button.Add_Click({
     if ($script:clicked -and ([DateTime]::Now - $script:clicked).TotalMilliseconds -lt 700) { return }  # a double click is one press
     $script:clicked = [DateTime]::Now
+    # an update installs: the button greys out on the next tick, but one that started this second (auto-update, or
+    # Update now) mustn't get captions under it: the update reopens the window when done, which stops them
+    if ($script:updateApply -and $script:updater -and -not $script:updater.HasExited) { return }
     if (-not (Engine-Installed)) {
         if ($script:installer -and -not $script:installer.HasExited) { Stop-Install; return }  # Pause
         Start-Install
@@ -1232,13 +1235,18 @@ function Build-Exe {
     $have = try { "$([Reflection.AssemblyName]::GetAssemblyName($exePath).Version)" } catch { "" }
     if ($have -eq $want) { return }
     if (Test-Path -LiteralPath $exePath) { Move-Item -LiteralPath $exePath $old }
-    $cp = New-Object CodeDom.Compiler.CompilerParameters
-    $cp.GenerateExecutable = $true
-    $cp.OutputAssembly = $exePath
-    $cp.CompilerOptions = "/target:winexe /optimize /win32icon:`"$appIcon`""
-    $cp.ReferencedAssemblies.AddRange([string[]]([psobject].Assembly.Location, "System.dll", "System.Core.dll"))
-    $result = (New-Object Microsoft.CSharp.CSharpCodeProvider).CompileAssemblyFromFile($cp, $src)
-    if ($result.Errors.HasErrors -and (Test-Path -LiteralPath $old)) { Move-Item -LiteralPath $old $exePath }  # keep the last one
+    try {
+        $cp = New-Object CodeDom.Compiler.CompilerParameters
+        $cp.GenerateExecutable = $true
+        $cp.OutputAssembly = $exePath
+        $cp.CompilerOptions = "/target:winexe /optimize /win32icon:`"$appIcon`""
+        $cp.ReferencedAssemblies.AddRange([string[]]([psobject].Assembly.Location, "System.dll", "System.Core.dll"))
+        [void](New-Object Microsoft.CSharp.CSharpCodeProvider).CompileAssemblyFromFile($cp, $src)
+    } finally {
+        # no new one (a compile error, or it threw: csc blocked by policy, no temp folder): keep the last one, or the
+        # shortcuts point at nothing and the next start deletes the .old.exe
+        if (-not (Test-Path -LiteralPath $exePath) -and (Test-Path -LiteralPath $old)) { Move-Item -LiteralPath $old $exePath }
+    }
 }
 try { Build-Exe } catch {}  # without it the shortcuts open the script as before
 $desktop = [Environment]::GetFolderPath("Desktop")

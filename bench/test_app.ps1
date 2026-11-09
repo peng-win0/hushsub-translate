@@ -35,6 +35,13 @@ try { ([IO.File]::Open("$PSScriptRoot\app\icon.ico", "Open", "ReadWrite", "Read"
 if (@(Test-Path -LiteralPath "$PSScriptRoot\app.ico","$PSScriptRoot\captions.ps1", "$PSScriptRoot\Profiles", "$PSScriptRoot\fonts", "$PSScriptRoot\glossary.txt") -contains $true) { throw "an old file stayed at the top" }
 if ("$(Get-Content -LiteralPath "$PSScriptRoot\app\glossary.txt" -Encoding UTF8)" -ne "Mine = Mine$([char]0xE9)") { throw "the users ANSI words didnt move into app as UTF-8" }
 if (($wordsBox.Text -split "`r`n")[0] -ne "Mine = Mine$([char]0xE9)") { throw "an ANSI glossary read as: $($wordsBox.Text)" }
+function Start-Best { $script:started = "Start-Best" }; function Start-Install { $script:started = "Start-Install" }; function Engine-Running { $false }
+$click = { $script:clicked = $null; $script:started = $null; $button.RaiseEvent((New-Object Windows.RoutedEventArgs ([Windows.Controls.Primitives.ButtonBase]::ClickEvent))); $script:started }
+$script:updater, $script:updateApply = (Get-Process -Id $PID), $true  # an update that began installing this second
+$during = & $click
+$script:updater, $script:updateApply = $null, $false
+if ($during) { throw "Start pressed while an update installs ran $during" }
+if (-not (& $click)) { throw "Start pressed with no update did nothing, so the check above checks nothing" }
 Set-Content "$PSScriptRoot\ok.txt" "ok"
 '@))
     if ($installed) { $patches += , @('function Engine-Installed { Test-Path -LiteralPath "audioWhisper\audioWhisper.exe" }', 'function Engine-Installed { $true }') }
