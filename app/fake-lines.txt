@@ -1,6 +1,7 @@
 # Lines Whisper makes up during silence, music or applause (sign-offs from the videos it learned from).
 # A caption line that is exactly one of these is dropped. Case, spaces and punctuation don't matter.
 # Add your own, one per line, then restart captions. Lines starting with # are ignored.
+# To stop dropping one of the lines below, put # before it. Don't delete it: the next update would add it back.
 That's the end of this video. Don't forget to subscribe and hit the like button.
 That's the end of this video.
 That's the end of the video.

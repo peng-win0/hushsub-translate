@@ -5,7 +5,8 @@
 #   version.txt goes last, so an update that didn't finish is tried again. The download and temp folder never stay;
 #   the backup stays only after a failure (it may hold the only copy of the user's words).
 # Never touches the engine, models or settings (they aren't in a release). glossary.txt and fake-lines.txt
-# keep the user's lines: only lines for new words are added. A git checkout (developer copy) is never changed.
+# keep the user's lines: only lines for new words are added, and a line the user put # before stays off. A git
+# checkout (developer copy) is never changed.
 # -Zip <file> -Version <x.y.z> installs a local release zip instead (bench/test_update.ps1).
 param([switch]$Apply, [string]$Zip, [string]$Version)
 $ErrorActionPreference = "Stop"
@@ -72,8 +73,9 @@ try {
         }
         $done += $f
         if ($merge -contains $f -and (Test-Path -LiteralPath $f)) {
-            # add lines whose word (left of " = ", or the whole line) the user's file doesn't have; skip comments
-            $key = { param($l) ($l -split '=', 2)[0].Trim() }
+            # add lines whose word (left of " = ", or the whole line) the user's file doesn't have; skip comments.
+            # A line the user turned off with # counts as there: else every update would bring it back
+            $key = { param($l) ($l.TrimStart().TrimStart('#') -split '=', 2)[0].Trim() }
             $path = (Resolve-Path -LiteralPath $f).Path
             # saved by hand as ANSI or Shift-JIS: read in the PC's code page, so the rewrite below (UTF-8) keeps its words
             $mine = @(try { [IO.File]::ReadAllLines($path, (New-Object Text.UTF8Encoding $false, $true)) } catch [Text.DecoderFallbackException] { [IO.File]::ReadAllLines($path, [Text.Encoding]::Default) })

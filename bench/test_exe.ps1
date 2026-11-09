@@ -42,4 +42,22 @@ if ($p.ExitCode -ne 0) { Fail "exit code $($p.ExitCode)" }
 Build-Exe  # now the old one is gone
 if (Test-Path -LiteralPath "$root\Hushsub Translate.old.exe") { Fail "old .exe left" }
 "rebuild ok"
+
+# a build that fails keeps the last .exe (the shortcuts point at it): a compile error, then a compile that throws
+function Bump($v) { (Get-Content -LiteralPath "$root\app\launcher.cs") -replace 'AssemblyVersion\("[\d.]+"\)', "AssemblyVersion(`"$v`")" | Set-Content "$root\app\launcher.cs" }
+function Kept($what) {
+    if (-not (Test-Path -LiteralPath $exePath) -or (Version) -ne "9.9.9.9") { Fail "$what lost the .exe" }
+    if (Test-Path -LiteralPath "$root\Hushsub Translate.old.exe") { Fail "$what left the .old.exe" }
+}
+Bump "9.9.9.8"; Add-Content -LiteralPath "$root\app\launcher.cs" -Value "not C#"
+Build-Exe
+Kept "a compile error"
+Bump "9.9.9.7"
+$was = $env:TMP, $env:TEMP
+$env:TMP = $env:TEMP = "$root\no-such-folder"  # where the compiler writes its files: as when policy or a full disk stops it
+$threw = try { Build-Exe; $false } catch { $true }
+$env:TMP, $env:TEMP = $was
+if (-not $threw) { Fail "the compile didn't throw without a temp folder: this part checks nothing" }
+Kept "a compile that threw"
+"failed build ok"
 Remove-Item -LiteralPath $root -Recurse -Force

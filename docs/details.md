@@ -170,7 +170,7 @@ draws the overlay.
 | `app/update.ps1` | Installs a newer GitHub release (`version.txt`) after checking its version and scripts. |
 | `app/Profiles/*.yaml` | Engine settings for Accurate, Balanced, Fast, Lite and CPU. The engine rewrites its profile on start, so close it before editing one. |
 | `app/glossary.txt` | Names and terms the translator or speech recognition gets wrong (for example product or team names), swapped in before translation, in every spoken language. Edit it under **Your words**; used from the next line. |
-| `app/fake-lines.txt` | Lines Whisper makes up during silence or music, like "Thanks for watching". A caption that is exactly one of them is dropped. Add your own. |
+| `app/fake-lines.txt` | Lines Whisper makes up during silence or music, like "Thanks for watching". A caption that is exactly one of them is dropped. Add your own; to turn one off, put `#` before it (an update adds a deleted line back). |
 | `app/fonts/` | Google Sans Flex, the app's font. |
 
 **Development.** These are in the repository but not in the download:

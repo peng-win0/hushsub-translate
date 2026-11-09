@@ -15,6 +15,6 @@ they fit together: [How it works](../docs/details.md#how-it-works).
 | `fonts/` | Google Sans Flex, the app's font, and its license (`OFL.txt`). |
 | `icon.ico` | The app's icon. |
 
-An update merges `glossary.txt` and `fake-lines.txt`, so lines the user added stay.
+An update merges `glossary.txt` and `fake-lines.txt`, so lines the user added stay, and a line the user put `#` before stays off.
 
 This README is on GitHub only: the download leaves it out (`.gitattributes`).
