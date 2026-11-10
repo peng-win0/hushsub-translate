@@ -189,6 +189,13 @@ function Gpu-Problem($gpu) {
     $null
 }
 
+function Whisper-Precision($m, $gpu) {
+    # Whisper's int8 weights with float16 math where CTranslate2 allows it (compute capability 7.0+: RTX 20 / GTX 16
+    # or newer): the same words, each line ~30 ms sooner on an RTX 4060. CTranslate2 refuses float16 on older GPUs and
+    # on the processor instead of falling back, so those, and a driver too old to say, keep int8 (float32 math).
+    if ($m -ne "CPU" -and $gpu -and $gpu.Cap -ge 7) { "int8_float16" } else { "int8" }
+}
+
 function Pick-Mode($b, $gpu, $extraFreeGB = 0) {
     # The best mode whose peak fits both the budget and the memory free now (+ what our running engine holds); CPU
     # when none does or there is no usable GPU ($null).
@@ -220,7 +227,7 @@ function Start-Update($apply) {
         -ArgumentList ("-NoProfile -ExecutionPolicy Bypass -File `"$PSScriptRoot\app\update.ps1`"" + $(if ($apply) { " -Apply" }))
 }
 
-function Start-Captions($m) {
+function Start-Captions($m, $gpu) {
     $script:running = $m
     $script:full = 0  # a count left from the last run must not cut this one's three checks short
     Save-Settings
@@ -234,7 +241,8 @@ function Start-Captions($m) {
     $yamlPath = "$PSScriptRoot\app\Profiles\$($modes[$m].Profile).yaml"
     # the language code quoted: YAML reads a bare no (Norwegian) as false
     $yaml = (Get-Content -LiteralPath $yamlPath -Encoding UTF8) -replace '^realtime: .*', "realtime: $("$([bool]$live.IsChecked)".ToLower())" `
-        -replace '^current_language: .*', "current_language: '$($from[0])'" -replace '^src_lang: .*', "src_lang: $($from[1])" -replace '^trg_lang: .*', "trg_lang: $($to[1])"
+        -replace '^current_language: .*', "current_language: '$($from[0])'" -replace '^src_lang: .*', "src_lang: $($from[1])" -replace '^trg_lang: .*', "trg_lang: $($to[1])" `
+        -replace '^((realtime_)?whisper_precision): .*', "`$1: $(Whisper-Precision $m $gpu)"
     [IO.File]::WriteAllLines($yamlPath, [string[]]$yaml)  # UTF-8 without BOM
     Remove-Item -LiteralPath ".captions-window", ".captions-stats", ".captions-failed", ".captions-log", ".captions-download", ".captions-ready", ".captions-restart", ".captions-mic-blocked" -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath ".captions-paused" -ErrorAction SilentlyContinue
@@ -246,7 +254,8 @@ function Start-Captions($m) {
 
 function Start-Best {
     $gpu = Get-Gpu
-    Start-Captions (Pick-Mode $script:budget $(if (-not (Gpu-Problem $gpu)) { $gpu }))
+    if (Gpu-Problem $gpu) { $gpu = $null }
+    Start-Captions (Pick-Mode $script:budget $gpu) $gpu
 }
 
 function Pause-Captions {

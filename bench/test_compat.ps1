@@ -3,7 +3,7 @@
 # Also captions.ps1's device lookup and how it points the profile at the audio.
 # usage: powershell -File bench/test_compat.ps1
 $ast = [Management.Automation.Language.Parser]::ParseFile("$PSScriptRoot\..\CaptionsApp.ps1", [ref]$null, [ref]$null)
-foreach ($name in "Get-Gpu", "Gpu-Problem", "Pick-Mode", "Default-Browser", "Caption-Language") {
+foreach ($name in "Get-Gpu", "Gpu-Problem", "Pick-Mode", "Whisper-Precision", "Default-Browser", "Caption-Language") {
     $fn = $ast.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }, $true)
     Invoke-Expression $fn.Extent.Text
 }
@@ -38,6 +38,15 @@ foreach ($g in $null, @{ Name = "GTX 960"; Total = 4; Free = 4; Driver = 581; Ca
 }
 if (Gpu-Problem $gpu8) { Fail "problem for a good GPU" }
 "modes ok"
+
+# Whisper's precision: float16 math only where CTranslate2 runs it (7.0+); int8 on the processor, a GTX 10 and a
+# driver too old to report the compute capability (CTranslate2 would refuse float16 there, not fall back)
+foreach ($case in @(@("Balanced", $gpu8, "int8_float16"), @("Lite", @{ Cap = 7.5 }, "int8_float16"), @("Lite", @{ Cap = 7.0 }, "int8_float16"),
+                    @("Lite", @{ Cap = 6.1 }, "int8"), @("Lite", @{ Cap = $null }, "int8"), @("CPU", $gpu8, "int8"), @("CPU", $null, "int8"))) {
+    $got = Whisper-Precision $case[0] $case[1]
+    if ($got -ne $case[2]) { Fail "precision for $($case[0]) at $($case[1].Cap): $got" }
+}
+"precision ok"
 
 $script:progId = $null
 function Get-ItemProperty { [pscustomobject]@{ ProgId = $script:progId } }
@@ -116,6 +125,10 @@ foreach ($p in $profiles) {
         $key = $want.Split(":")[0] + ":"
         $have = @($lines | Where-Object { $_.StartsWith($key) })
         if ($have.Count -ne 1 -or $have[0] -cne $want) { Fail "$($p.Name): $key $($have -join ' / ')" }
+    }
+    # the app sets Whisper's precision on these two lines at each Start, so each is there once
+    foreach ($key in "whisper_precision: ", "realtime_whisper_precision: ") {
+        if (@($lines | Where-Object { $_.StartsWith($key) }).Count -ne 1) { Fail "$($p.Name): $key" }
     }
 }
 "privacy settings ok"
