@@ -9,7 +9,7 @@ how it works.
 |---|---|
 | RTX 30, 40, 50 series | Yes, all modes, as measured below. |
 | RTX 20, GTX 16 series | Should work, somewhat slower. These cards have no bfloat16, so translation uses int8 + float32. Auto steps down if it is too slow. |
-| GTX 10 series | Should work, slower still: no fast float16 either. |
+| GTX 10 series | Should work, slower still: no fast float16 either, so speech recognition also uses int8 + float32. |
 | GTX 900 or older, AMD, Intel, none | CPU mode on the processor. The graphics card modes need NVIDIA CUDA with int8 support. |
 
 Only an RTX 4060 has been measured. Reports from other cards are welcome: open an issue and paste the app's log
