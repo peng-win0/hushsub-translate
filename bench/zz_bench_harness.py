@@ -45,7 +45,7 @@ def install():
     # on: EARLY07GATE10A.
     early = re.search(r"EARLY(\d\d)", run)
     if early:
-        sys.modules[cls.__module__].EARLY_FINAL_AFTER = float(f"0.{early[1]}")
+        cls.init.__globals__["EARLY_FINAL_AFTER"] = float(f"0.{early[1]}")  # the engine doesn't list plugins in sys.modules
     tp = re.search(r"TPAUSE(\d\d)", run)
     TEXT_PAUSE["low"] = float(f"0.{tp[1]}") if tp else 0.0
     if "NODRTR" in run:  # drafts are not translated (no English live line): does translating them delay finals?
