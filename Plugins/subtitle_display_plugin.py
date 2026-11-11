@@ -807,6 +807,9 @@ class SubtitleDisplayPlugin(Plugins.Base):
     close_requested = None
 
     current_intermediate_transcription = None
+    # The app's Live line switch. Off, drafts still run but stay hidden: a finished line that matches the last
+    # draft reuses its translation, so its English shows ~0.45 s sooner than with no drafts (bench).
+    cc_live = True
 
     transcription_keep_last = True
     transcription_limit = 3
@@ -875,6 +878,7 @@ class SubtitleDisplayPlugin(Plugins.Base):
                 self.cc_alpha = percent("captionBackground", 75)
                 self.root.attributes('-alpha', self.cc_alpha)
             self.cc_original = style.get("showOriginal") is True  # a small row above for the spoken line
+            self.cc_live = style.get("live") is True
             self.chatbox = style.get("vrchatChatbox") is True  # sent only while the engine hears VRChat or the mic
             self.cc_height = (MAX_SCREEN_LINES * (self.cc_font.metrics("linespace") + px(5)) + px(10)  # fixed: the bottom edge never jumps
                               + (self.cc_hint_h if self.cc_original else 0))
@@ -1304,7 +1308,7 @@ class SubtitleDisplayPlugin(Plugins.Base):
                 del self.transcription_times[text]
 
         # Finished lines + the still-changing live text; the overlay rolls them up like YouTube live captions.
-        live = [self.current_intermediate_transcription or ""]
+        live = [self.current_intermediate_transcription if self.cc_live else ""]
         live.extend(getattr(self, "_stream_intermediates", {}).values())
         live.extend(getattr(self, "_stable_captions", {}).values())
         if self.update_queue is None:  # the overlay was closed; a translator thread may still finish a line
@@ -1373,7 +1377,7 @@ class SubtitleDisplayPlugin(Plugins.Base):
                 # finished line until the final's translation replaces it, instead of the next sentence's first
                 # words wiping it out for the ~0.2-2 s the translation takes.
                 live = self.current_intermediate_transcription
-                if live and self._live_seq > self._final_cut and live not in self.transcriptions:
+                if self.cc_live and live and self._live_seq > self._final_cut and live not in self.transcriptions:
                     self._pending[seq] = live
                     self.current_intermediate_transcription = None
                     self._append_final(live)

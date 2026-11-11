@@ -143,6 +143,22 @@ assert list(p.transcriptions)[-1] == "After Start." and "Said before Stop." not 
 assert "Said before Stop." not in p.originals and not p._sources, "a dropped line leaves nothing behind"
 print("pending final ok")
 
+# Live line off: drafts still translate (a final that matches reuses it) but never show, and no draft's English
+# stands in for a finished line, so a caption never changes once it shows.
+import queue
+p.cc_live, p.update_queue = False, queue.Queue()
+p.get_plugin_setting = {"transcription_keep_last": True, "transcription_display_time": 15}.get
+p._submit_translation("j", False, "jpn_Jpan"); p._show_live(sent[-1], "Hidden draft")
+p._submit_translation("k", True, "jpn_Jpan"); fin = sent[-1]
+assert "Hidden draft" not in p.transcriptions and not p._pending, p.transcriptions
+p._submit_translation("l", False, "jpn_Jpan"); p._show_live(sent[-1], "Next draft")
+p._update_intermediate_label_text()
+assert p.update_queue.get_nowait()[1] == "", "the live line stays hidden"
+p._show_final(fin, "Shown once.")
+assert list(p.transcriptions)[-1] == "Shown once." and "Hidden draft" not in p.history
+p.cc_live = True
+print("live line off ok")
+
 # VRChat chatbox: each finished line goes to VRChat on this PC, never a draft, only with the switch on. In the app the
 # engine's VRC_OSCLib sends it; here a stand-in puts each call on a local UDP socket.
 import json, socket

@@ -231,7 +231,10 @@ function Start-Captions($m, $gpu) {
     $script:running = $m
     $script:full = 0  # a count left from the last run must not cut this one's three checks short
     Save-Settings
-    # live line on/off (the engine's realtime drafts) and the languages; the engine isn't running here, so the profile is safe to edit
+    # the languages, and the engine's drafts (realtime). On the GPU they always run: a finished line that matches the
+    # last draft reuses its translation (bench: English ~0.45 s sooner), and the Live line switch only shows or hides
+    # them (the plugin reads it from app-settings.json). CPU: drafts only with the switch on (not measured there; they
+    # share the cores with the finished line). The engine isn't running here, so the profile is safe to edit
     $to = $languages[(Caption-Language)]
     # spoken Auto: Whisper detects each line's language and the plugin translates from it; src_lang only has to
     # differ from the captions' language, so the plugin loads its translator
@@ -240,7 +243,7 @@ function Start-Captions($m, $gpu) {
     $script:startKey = Start-Key $script:app
     $yamlPath = "$PSScriptRoot\app\Profiles\$($modes[$m].Profile).yaml"
     # the language code quoted: YAML reads a bare no (Norwegian) as false
-    $yaml = (Get-Content -LiteralPath $yamlPath -Encoding UTF8) -replace '^realtime: .*', "realtime: $("$([bool]$live.IsChecked)".ToLower())" `
+    $yaml = (Get-Content -LiteralPath $yamlPath -Encoding UTF8) -replace '^realtime: .*', "realtime: $("$([bool]$live.IsChecked -or $m -ne 'CPU')".ToLower())" `
         -replace '^current_language: .*', "current_language: '$($from[0])'" -replace '^src_lang: .*', "src_lang: $($from[1])" -replace '^trg_lang: .*', "trg_lang: $($to[1])" `
         -replace '^((realtime_)?whisper_precision): .*', "`$1: $(Whisper-Precision $m $gpu)"
     [IO.File]::WriteAllLines($yamlPath, [string[]]$yaml)  # UTF-8 without BOM

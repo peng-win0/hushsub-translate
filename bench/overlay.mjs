@@ -36,6 +36,28 @@ const matched = lastIn.map((t, i) => t && t - ends[i]).filter((x) => x !== null)
 const dispDelay = finalsIn.map((f) => shown.find((s) => s.t >= f.t && s.t < f.t + 3000)).map((s, i) => s && s.t - finalsIn[i].t).filter((x) => x !== undefined);
 console.log(`clip speech end -> its last final reaches plugin (text-matched, uncapped): median ${pct(matched, 0.5)} ms, p90 ${pct(matched, 0.9)}, mean ${Math.round(matched.reduce((a, b) => a + b, 0) / matched.length)} (${matched.length}/${ends.length})`);
 console.log(`plugin final_in -> English on screen: median ${pct(dispDelay, 0.5)} ms, p90 ${pct(dispDelay, 0.9)}`);
+// split of the wait before final_in: speech end -> engine cut (pause, VAD), cut -> final_in (queue, Whisper pass)
+const cuts = of("cut");
+if (cuts.length) {
+  const toCut = ends.map((e) => firstAfter(cuts, e)?.t - e).filter((x) => !Number.isNaN(x));
+  const pass = finalsIn.map((f) => cuts.filter((c) => c.t <= f.t && c.t > f.t - 3000).at(-1)).map((c, i) => c && finalsIn[i].t - c.t).filter((x) => x !== undefined);
+  console.log(`speech end -> engine cut: median ${pct(toCut, 0.5)} ms, p90 ${pct(toCut, 0.9)}; cut -> final reaches plugin: median ${pct(pass, 0.5)} ms, p90 ${pct(pass, 0.9)} (${cuts.length} cuts)`);
+  // the recorder's last speech chunk: speech end -> it = VAD tail, it -> cut = the pause timer
+  const tail = ends.map((e) => firstAfter(cuts, e)).map((c, i) => c?.last && c.last - ends[i]).filter((x) => typeof x === "number");
+  const timer = cuts.filter((c) => c.last).map((c) => c.t - c.last);
+  if (tail.length) console.log(`speech end -> last speech chunk (VAD tail): median ${pct(tail, 0.5)} ms, p90 ${pct(tail, 0.9)}; last chunk -> cut (pause): median ${pct(timer, 0.5)} ms`);
+}
+// EARLY_FINAL experiment: head-start passes run, and how many finals used one
+const early = of("early_done"), hit = of("early_hit"), miss = of("early_miss");
+if (early.length || hit.length || miss.length) {
+  console.log(`early final: ${early.length} head-start passes (median ${pct(early.map((e) => e.ms), 0.5)} ms), finals used one ${hit.length}, missed ${miss.length} (${miss.filter((m) => m.spec).length} had a different pass running); wait on a used one: median ${pct(hit.map((h) => h.wait), 0.5)} ms; errors ${of("early_error").length}`);
+}
+// SHORT and GATE experiments (zz_bench_harness.py)
+const shapes = of("short_shape"), shortErr = of("short_error"), gated = of("draft_gated");
+if (shapes.length || shortErr.length) console.log(`short window: encoder input ${shapes.map((s) => s.shape.join("x")).join(", ")}; errors: ${shortErr.map((e) => e.err).join("; ") || "none"}`);
+if (gated.length) console.log(`draft gate: ${gated.length} drafts dropped during pauses`);
+const tpu = of("tpause_used");
+if (tpu.length) console.log(`text pause: the recorder read the lowered pause about ${tpu.at(-1).n} times`);
 console.log(`final reaches plugin: median ${pct(latIn, 0.5)} ms, p90 ${pct(latIn, 0.9)} (${latIn.length}/${ends.length})`);
 console.log(`English final on screen: median ${pct(lat, 0.5)} ms, p90 ${pct(lat, 0.9)} (${lat.length}/${ends.length})`);
 if (upg.length) console.log(`upgrade ${upg.length}/${shown.length} finals, +${pct(upLat, 0.5)} ms median after first text (p90 +${pct(upLat, 0.9)})`);
