@@ -1,7 +1,7 @@
 # The caption plugin
 
-`subtitle_display_plugin.py` is the part of Hushsub Translate that runs inside the Whispering Tiger engine. For each
-line the engine hears, it:
+`subtitle_display_plugin.py` is the part of Hushsub Translate that runs inside the Whispering Tiger engine. The
+engine's speech recognizer, Whisper, writes down each line it hears. For each line, the plugin:
 
 - swaps in your words (`app/glossary.txt`) and drops lines Whisper made up (`app/fake-lines.txt`);
 - translates the line on the graphics card (CPU mode: the processor) with the mode's model;
