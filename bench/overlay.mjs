@@ -47,11 +47,6 @@ if (cuts.length) {
   const timer = cuts.filter((c) => c.last).map((c) => c.t - c.last);
   if (tail.length) console.log(`speech end -> last speech chunk (VAD tail): median ${pct(tail, 0.5)} ms, p90 ${pct(tail, 0.9)}; last chunk -> cut (pause): median ${pct(timer, 0.5)} ms`);
 }
-// EARLY_FINAL experiment: head-start passes run, and how many finals used one
-const early = of("early_done"), hit = of("early_hit"), miss = of("early_miss");
-if (early.length || hit.length || miss.length) {
-  console.log(`early final: ${early.length} head-start passes (median ${pct(early.map((e) => e.ms), 0.5)} ms), finals used one ${hit.length}, missed ${miss.length} (${miss.filter((m) => m.spec).length} had a different pass running); wait on a used one: median ${pct(hit.map((h) => h.wait), 0.5)} ms; errors ${of("early_error").length}`);
-}
 // SHORT and GATE experiments (zz_bench_harness.py)
 const shapes = of("short_shape"), shortErr = of("short_error"), gated = of("draft_gated");
 if (shapes.length || shortErr.length) console.log(`short window: encoder input ${shapes.map((s) => s.shape.join("x")).join(", ")}; errors: ${shortErr.map((e) => e.err).join("; ") || "none"}`);

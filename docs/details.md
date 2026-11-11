@@ -157,7 +157,8 @@ audio. GPL obligations apply only when redistributing it.
 The [Whispering Tiger](https://github.com/Sharrnah/whispering) engine (v1.3.20.1) captures the browser's audio (or the speakers' loopback, or the microphone) and
 transcribes it with Whisper large-v3-turbo (small in CPU mode). It decodes the audio with the ffmpeg its download
 brings along. `Plugins/subtitle_display_plugin.py` translates each line on the GPU (CPU mode: the processor) and
-draws the overlay.
+draws the overlay. On the GPU it also starts Whisper on a line 0.1 s after the speech stops, instead of waiting for
+the engine's full pause; the engine uses that result if the pause ends with no new speech.
 
 | File | Purpose |
 |---|---|

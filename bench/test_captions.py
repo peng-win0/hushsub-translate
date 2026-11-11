@@ -236,3 +236,43 @@ del sys.modules["settings"]
 p.stt("Let's look at the cats.", {"text": "Let's look at the cats."})
 assert shown[-1] == ("Let's look at the cats.", "Let's look at the cats.", True), shown
 print("live line agreement ok")
+
+# Early final: after EARLY_FINAL_AFTER s of silence the plugin runs Whisper's final pass, and the engine's own final pass
+# with the same audio takes that result (once). The CPU never gets one. Stand-ins for the engine's recorder and Whisper.
+import numpy as np
+calls = []
+class FW:
+    def transcribe(self, audio_sample, **kw):
+        calls.append(len(audio_sample))
+        return {"text": f"t{len(calls)}"}
+class Rec:
+    needs_sample_rate_conversion = False
+    def __init__(self):
+        self.frames, self.start_time = [], 0.0
+    def _callback_locked(self):
+        return "ok"
+orig_fw = FW.transcribe
+sys.modules["audio_processing_recording"] = types.SimpleNamespace(AudioProcessor=Rec)
+sys.modules["Models.STT.faster_whisper"] = types.SimpleNamespace(FasterWhisper=FW)
+sys.modules["audio_tools"] = types.SimpleNamespace()
+dev = {"ai_device": "cpu", "stt_type": "faster_whisper"}
+sys.modules["settings"] = types.SimpleNamespace(GetOption=dev.get)
+sdp.early_final()
+assert FW.transcribe is orig_fw, "no early pass on the CPU"
+dev["ai_device"] = "cuda"
+sdp.early_final()
+fw, r = FW(), Rec()
+assert r._callback_locked() == "ok" and fw.transcribe(np.zeros(5, np.float32), language="ja") == {"text": "t1"}  # a draft
+pcm = (np.arange(1600, dtype=np.int16) * 7).tobytes()
+r.frames, r.start_time = [pcm], time.time() - 0.2  # 0.2 s of silence after speech
+assert r._callback_locked() == "ok"
+end = time.time() + 5
+while len(calls) < 2 and time.time() < end:
+    time.sleep(0.01)
+audio = np.frombuffer(pcm, np.int16).astype(np.float32) / 32768.0
+assert fw.transcribe(audio, language="ja") == {"text": "t2"} and len(calls) == 2, calls  # the early result, no new pass
+assert fw.transcribe(audio, language="ja") == {"text": "t3"}, calls  # used once
+r._callback_locked()
+assert len(calls) == 3, "one early pass per pause"
+del sys.modules["settings"]
+print("early final ok")

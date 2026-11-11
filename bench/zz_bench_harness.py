@@ -41,12 +41,11 @@ def install():
     # a run named GATEnn: no new draft once nn hundredths of a second have passed since the last speech chunk
     gate = re.search(r"GATE(\d\d)", run)
     threading.Thread(target=patch_cut_hook, args=(float(f"0.{gate[1]}") if gate else 0.0,), daemon=True).start()
-    # EARLY_FINAL=seconds, or a run named EARLYnn (bench.sh EARLY10A:profile = 0.10 s): the early-final experiment.
-    # Both can be on: EARLY10GATE10A.
+    # a run named EARLYnn: the plugin's early final pass starts after nn/100 s of silence (EARLY00: off). Both can be
+    # on: EARLY07GATE10A.
     early = re.search(r"EARLY(\d\d)", run)
-    head = os.environ.get("EARLY_FINAL") or (f"0.{early[1]}" if early else "")
-    if head:
-        threading.Thread(target=patch_early_final, args=(float(head),), daemon=True).start()
+    if early:
+        sys.modules[cls.__module__].EARLY_FINAL_AFTER = float(f"0.{early[1]}")
     tp = re.search(r"TPAUSE(\d\d)", run)
     TEXT_PAUSE["low"] = float(f"0.{tp[1]}") if tp else 0.0
     if "NODRTR" in run:  # drafts are not translated (no English live line): does translating them delay finals?
@@ -57,111 +56,6 @@ def install():
     # Plugins load while audioprocessor is still importing; patch it once it is complete.
     threading.Thread(target=patch_send_message, daemon=True).start()
     threading.Thread(target=patch_remote_phrase_limit, daemon=True).start()
-
-
-def patch_early_final(head):
-    """Experiment (EARLY_FINAL=seconds): start Whisper's final pass after `head` s of silence, not after the
-    full pause. When the pause ends with the same audio, the worker's own final pass gets that result."""
-    import hashlib
-
-    import numpy as np
-
-    def ready():
-        rec, fw, ap = (sys.modules.get(n) for n in ("audio_processing_recording", "Models.STT.faster_whisper", "audioprocessor"))
-        return hasattr(rec, "AudioProcessor") and hasattr(fw, "FasterWhisper") and hasattr(ap, "convert_audio") and hasattr(ap, "whisper_ai_thread")
-
-    while not ready():
-        time.sleep(0.2)
-    import audio_tools
-
-    rec_cls = sys.modules["audio_processing_recording"].AudioProcessor
-    fw_cls = sys.modules["Models.STT.faster_whisper"].FasterWhisper
-    ap = sys.modules["audioprocessor"]
-    memo, memo_lock, tl = {}, threading.Lock(), threading.local()
-    state = {"model": None, "kw": None}
-    orig_tr, orig_cb, orig_thread = fw_cls.transcribe, rec_cls._callback_locked, ap.whisper_ai_thread
-
-    def key_of(audio, kw):
-        return hashlib.blake2b(np.ascontiguousarray(audio).tobytes(), digest_size=16).hexdigest() + repr(sorted(kw.items()))
-
-    def transcribe(self, audio_sample, *a, **kw):
-        if a:
-            return orig_tr(self, audio_sample, *a, **kw)
-        state["model"], state["kw"] = self, dict(kw)
-        final, t0 = getattr(tl, "final", False), time.time()
-        with memo_lock:
-            slot = memo.get(key_of(audio_sample, kw))
-        if slot is not None and slot[0].wait(10) and slot[1] is not None:
-            if final:
-                log(ev="early_hit", wait=round((time.time() - t0) * 1000))
-            return slot[1]
-        if final:
-            log(ev="early_miss", spec=slot is not None)
-        return orig_tr(self, audio_sample, **kw)
-
-    def whisper_ai_thread(*a, **k):
-        tl.final = a[5] if len(a) > 5 else k.get("final_audio", False)
-        try:
-            return orig_thread(*a, **k)
-        finally:
-            tl.final = False
-
-    def speculate(rec, frames):
-        """The recorder's flush steps (normalize, silence cut, WAV) and the worker's WAV-to-array step, early."""
-        t0, g = time.time(), rec.settings.GetOption
-        if g("denoise_audio") or g("vad_on_full_clip"):
-            return  # those change the final audio after the flush
-        data = b"".join(frames)
-        if rec.needs_sample_rate_conversion:
-            data = audio_tools.resample_audio(data, rec.recorded_sample_rate, rec.default_sample_rate, target_channels=1,
-                                              input_channels=rec.input_channel_num).tobytes()
-        if g("normalize_enabled") and len(data) >= rec.block_size_samples:
-            data = audio_tools.convert_audio_datatype_to_float(np.frombuffer(data, np.int16))
-            data, _ = audio_tools.normalize_audio_lufs(data, rec.default_sample_rate, g("normalize_lower_threshold"),
-                                                       g("normalize_upper_threshold"), g("normalize_gain_factor"), verbose=False)
-            data = audio_tools.convert_audio_datatype_to_integer(data, np.int16)
-        if g("silence_cutting_enabled"):
-            arr = np.frombuffer(data, np.int16) if isinstance(data, bytes) else data
-            if len(arr) >= rec.block_size_samples:
-                data = audio_tools.remove_silence_parts(arr, rec.default_sample_rate, silence_offset=g("silence_offset"),
-                                                        max_silence_length=g("max_silence_length"),
-                                                        keep_silence_length=g("keep_silence_length"), verbose=False)
-        if isinstance(data, np.ndarray):
-            data = data.tobytes()
-        if not data:
-            return
-        # = ap.convert_audio(wav of data) for 16 kHz mono int16, without its pydub/ffprobe call: running that next to
-        # the worker's own one broke the worker's (JSONDecodeError in mediainfo_json, run EARLY10A)
-        audio = np.frombuffer(data, np.int16).flatten().astype(np.float32) / 32768.0
-        kw = state["kw"]
-        k, slot = key_of(audio, kw), [threading.Event(), None]
-        with memo_lock:
-            if k in memo:
-                return
-            memo[k] = slot
-            while len(memo) > 8:
-                memo.pop(next(iter(memo)))
-        try:
-            slot[1] = orig_tr(state["model"], audio, **kw)
-        except Exception as e:  # noqa: BLE001 - an experiment must never stop captions
-            log(ev="early_error", err=repr(e))
-        finally:
-            slot[0].set()
-        log(ev="early_done", ms=round((time.time() - t0) * 1000))
-
-    def callback_locked(self, *a, **k):
-        r = orig_cb(self, *a, **k)
-        try:  # runs under the recorder's lock, so frames and start_time agree
-            if self.frames and state["model"] is not None and time.time() - self.start_time >= head \
-                    and getattr(self, "_early_tag", None) != self.start_time:
-                self._early_tag = self.start_time
-                threading.Thread(target=speculate, args=(self, list(self.frames)), daemon=True).start()
-        except Exception as e:  # noqa: BLE001
-            log(ev="early_error", err=repr(e))
-        return r
-
-    fw_cls.transcribe, rec_cls._callback_locked, ap.whisper_ai_thread = transcribe, callback_locked, whisper_ai_thread
-    log(ev="early_final_ready", head=head)
 
 
 def patch_short_window():
