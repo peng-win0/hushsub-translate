@@ -81,10 +81,10 @@ down if another app needs the memory. Most people can leave it on Auto.
 
 | Mode | Delay | Graphics memory | Translation |
 |---|---|---|---|
-| Accurate | about 1.5 s | 6.2 GB | Polished (MiLMMT-46-4B) |
-| Balanced | about 0.7 s | 3.6 GB | Good (MiLMMT-46-1B). Auto's pick on 8 GB cards. |
-| Fast | about 1 s | 3.0 GB | LFM2 for Japanese and English, NLLB for the rest. Auto's pick on 6 GB cards. |
-| Lite | about 0.7 s | 2.3 GB | Basic (NLLB-600M). Auto's pick on 4 GB cards. |
+| Accurate | about 1.5 s | 6.3 GB | Polished (MiLMMT-46-4B) |
+| Balanced | about 0.6 s | 3.9 GB | Good (MiLMMT-46-1B). Auto's pick on 8 GB cards. |
+| Fast | about 1 s | 3.2 GB | LFM2 for Japanese and English, NLLB for the rest. Auto's pick on 6 GB cards. |
+| Lite | about 0.6 s | 2.7 GB | Basic (NLLB-600M). Auto's pick on 4 GB cards. |
 | CPU | about 3 s | none | Basic (NLLB-600M). Its speech recognition, Whisper small, misses more words. |
 
 Delay is how long after speech the caption shows, measured on an RTX 4060 Laptop.

@@ -481,6 +481,104 @@ def agreed_start(a, b, hold=0):
     return b[:kb[n - 1][1] + 1].strip() if n else ""
 
 
+EARLY_FINAL_AFTER = 0.10  # s of silence before Whisper's final pass starts (the engine waits for its full pause); 0 = off
+EARLY_FINAL_STARTED = []
+
+
+def early_final():
+    """Start Whisper's final pass after EARLY_FINAL_AFTER s of silence, not the engine's full pause (bench: finished
+    lines about 70 ms sooner, same text). When the pause ends with the same audio, the engine's own final pass takes
+    the ready result; if speech goes on, the early one is dropped. GPU only: on the CPU it would slow everything
+    else. It patches engine internals, so an engine that doesn't match leaves it off. Results stay in memory."""
+    import hashlib
+    import sys
+
+    import numpy as np
+
+    for _ in range(1200):  # the engine imports Whisper when it loads the model
+        rec, fw = sys.modules.get("audio_processing_recording"), sys.modules.get("Models.STT.faster_whisper")
+        if hasattr(rec, "AudioProcessor") and hasattr(fw, "FasterWhisper"):
+            break
+        time.sleep(0.5)
+    else:
+        return
+    import audio_tools
+    import settings
+    g = settings.GetOption
+    if not EARLY_FINAL_AFTER or g("ai_device") != "cuda" or g("stt_type") != "faster_whisper":
+        return
+    rec_cls, fw_cls = rec.AudioProcessor, fw.FasterWhisper
+    orig_tr, orig_cb = fw_cls.transcribe, rec_cls._callback_locked
+    memo, lock, last = {}, threading.Lock(), {}
+
+    def key(model, audio, kw):
+        return id(model), hashlib.blake2b(np.ascontiguousarray(audio).tobytes(), digest_size=16).digest(), repr(sorted(kw.items()))
+
+    def transcribe(self, audio_sample, *a, **kw):
+        if a or not isinstance(audio_sample, np.ndarray):
+            return orig_tr(self, audio_sample, *a, **kw)
+        last["model"], last["kw"] = self, kw
+        with lock:
+            slot = memo.pop(key(self, audio_sample, kw), None)
+        if slot is not None and slot[0].wait(10) and slot[1] is not None:
+            return slot[1]
+        return orig_tr(self, audio_sample, **kw)
+
+    def run_early(r, frames):
+        """The recorder's flush (resample, normalize, cut silence) and the worker's WAV-to-array step, early."""
+        if g("denoise_audio") or g("vad_on_full_clip"):
+            return  # they change the final audio after the flush
+        data = b"".join(frames)
+        if r.needs_sample_rate_conversion:
+            data = audio_tools.resample_audio(data, r.recorded_sample_rate, r.default_sample_rate, target_channels=1,
+                                              input_channels=r.input_channel_num).tobytes()
+        if g("normalize_enabled") and len(data) >= r.block_size_samples:
+            data = audio_tools.convert_audio_datatype_to_float(np.frombuffer(data, np.int16))
+            data, _ = audio_tools.normalize_audio_lufs(data, r.default_sample_rate, g("normalize_lower_threshold"),
+                                                       g("normalize_upper_threshold"), g("normalize_gain_factor"), verbose=False)
+            data = audio_tools.convert_audio_datatype_to_integer(data, np.int16)
+        if g("silence_cutting_enabled"):
+            arr = np.frombuffer(data, np.int16) if isinstance(data, bytes) else data
+            if len(arr) >= r.block_size_samples:
+                data = audio_tools.remove_silence_parts(arr, r.default_sample_rate, silence_offset=g("silence_offset"),
+                                                        max_silence_length=g("max_silence_length"),
+                                                        keep_silence_length=g("keep_silence_length"), verbose=False)
+        data = data.tobytes() if isinstance(data, np.ndarray) else data
+        if not data:
+            return
+        # the worker's convert_audio for 16 kHz mono int16, without its pydub call (two at once break it)
+        audio = np.frombuffer(data, np.int16).astype(np.float32) / 32768.0
+        model, kw = last["model"], last["kw"]
+        k, slot = key(model, audio, kw), [threading.Event(), None]
+        with lock:
+            memo[k] = slot
+            while len(memo) > 8:
+                memo.pop(next(iter(memo)))
+        try:
+            slot[1] = orig_tr(model, audio, **kw)
+        finally:
+            slot[0].set()
+
+    def quiet(r, frames):
+        try:
+            run_early(r, frames)
+        except Exception:  # noqa: BLE001 - the engine's own final pass runs as before; no traceback, it may quote a line
+            pass
+
+    def callback_locked(self, *a, **k):
+        res = orig_cb(self, *a, **k)
+        try:  # under the recorder's lock, so frames and start_time agree
+            if self.frames and last and time.time() - self.start_time >= EARLY_FINAL_AFTER \
+                    and getattr(self, "_early_final", None) != self.start_time:
+                self._early_final = self.start_time
+                threading.Thread(target=quiet, args=(self, list(self.frames)), daemon=True).start()
+        except Exception:  # noqa: BLE001 - never stop captions
+            pass
+        return res
+
+    fw_cls.transcribe, rec_cls._callback_locked = transcribe, callback_locked
+
+
 class PluginTranslator:
     """Translates inside the plugin when the engine sends untranslated text (profile `txt_translate: false`).
 
@@ -807,6 +905,9 @@ class SubtitleDisplayPlugin(Plugins.Base):
     close_requested = None
 
     current_intermediate_transcription = None
+    # The app's Live line switch. Off, drafts still run but stay hidden: a finished line that matches the last
+    # draft reuses its translation, so its English shows ~0.45 s sooner than with no drafts (bench).
+    cc_live = True
 
     transcription_keep_last = True
     transcription_limit = 3
@@ -875,6 +976,7 @@ class SubtitleDisplayPlugin(Plugins.Base):
                 self.cc_alpha = percent("captionBackground", 75)
                 self.root.attributes('-alpha', self.cc_alpha)
             self.cc_original = style.get("showOriginal") is True  # a small row above for the spoken line
+            self.cc_live = style.get("live") is True
             self.chatbox = style.get("vrchatChatbox") is True  # sent only while the engine hears VRChat or the mic
             self.cc_height = (MAX_SCREEN_LINES * (self.cc_font.metrics("linespace") + px(5)) + px(10)  # fixed: the bottom edge never jumps
                               + (self.cc_hint_h if self.cc_original else 0))
@@ -1273,6 +1375,10 @@ class SubtitleDisplayPlugin(Plugins.Base):
                                                    self.get_plugin_setting("plugin_translation_fast_model"),
                                                    self.get_plugin_setting("plugin_translation_upgrade_model"))
 
+        if self.is_enabled(False) and not EARLY_FINAL_STARTED:
+            EARLY_FINAL_STARTED.append(True)
+            threading.Thread(target=early_final, daemon=True).start()
+
         if self.root is None and self.is_enabled(False):
             self.update_queue = queue.Queue()
             self.tkinter_thread = threading.Thread(target=self.tkinter_thread_func, daemon=True)
@@ -1304,7 +1410,7 @@ class SubtitleDisplayPlugin(Plugins.Base):
                 del self.transcription_times[text]
 
         # Finished lines + the still-changing live text; the overlay rolls them up like YouTube live captions.
-        live = [self.current_intermediate_transcription or ""]
+        live = [self.current_intermediate_transcription if self.cc_live else ""]
         live.extend(getattr(self, "_stream_intermediates", {}).values())
         live.extend(getattr(self, "_stable_captions", {}).values())
         if self.update_queue is None:  # the overlay was closed; a translator thread may still finish a line
@@ -1373,7 +1479,7 @@ class SubtitleDisplayPlugin(Plugins.Base):
                 # finished line until the final's translation replaces it, instead of the next sentence's first
                 # words wiping it out for the ~0.2-2 s the translation takes.
                 live = self.current_intermediate_transcription
-                if live and self._live_seq > self._final_cut and live not in self.transcriptions:
+                if self.cc_live and live and self._live_seq > self._final_cut and live not in self.transcriptions:
                     self._pending[seq] = live
                     self.current_intermediate_transcription = None
                     self._append_final(live)

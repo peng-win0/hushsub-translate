@@ -4,6 +4,7 @@
 # - The subtitle overlay runs headless and logs every frame / trace event to probe/display.jsonl.
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -11,6 +12,7 @@ import time
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 LOG = os.path.join(ROOT, "probe", "display.jsonl")
 _log_lock = threading.Lock()
+TEXT_PAUSE = {"low": 0.0, "now": None, "used": 0}  # a run named TPAUSEnn: pause nn/100 s after a draft ends a sentence
 
 
 def log(**kw):
@@ -35,9 +37,73 @@ def install():
 
     cls.tkinter_thread_func = headless
     cls._trace = lambda self, ev, **kw: log(ev=ev, **kw)
+    run = os.path.basename(next((a for a in sys.argv if a.endswith(".yaml")), ""))
+    # a run named GATEnn: no new draft once nn hundredths of a second have passed since the last speech chunk
+    gate = re.search(r"GATE(\d\d)", run)
+    threading.Thread(target=patch_cut_hook, args=(float(f"0.{gate[1]}") if gate else 0.0,), daemon=True).start()
+    # a run named EARLYnn: the plugin's early final pass starts after nn/100 s of silence (EARLY00: off). Both can be
+    # on: EARLY07GATE10A.
+    early = re.search(r"EARLY(\d\d)", run)
+    if early:
+        cls.init.__globals__["EARLY_FINAL_AFTER"] = float(f"0.{early[1]}")  # the engine doesn't list plugins in sys.modules
+    tp = re.search(r"TPAUSE(\d\d)", run)
+    TEXT_PAUSE["low"] = float(f"0.{tp[1]}") if tp else 0.0
+    if "NODRTR" in run:  # drafts are not translated (no English live line): does translating them delay finals?
+        orig_sub = cls._submit_translation
+        cls._submit_translation = lambda self, text, is_final, *a, **k: orig_sub(self, text, is_final, *a, **k) if is_final else None
+    if run[:5] == "SHORT":  # a run named SHORTx: Whisper's encoder sees the clip's length, not a padded 30 s window
+        threading.Thread(target=patch_short_window, daemon=True).start()
     # Plugins load while audioprocessor is still importing; patch it once it is complete.
     threading.Thread(target=patch_send_message, daemon=True).start()
     threading.Thread(target=patch_remote_phrase_limit, daemon=True).start()
+
+
+def patch_short_window():
+    """Experiment: pad each window to the clip's length plus 1 s, not to 30 s. If CTranslate2 refuses the shorter
+    input, log it once and go back to 30 s, so the run still scores."""
+    while not hasattr(sys.modules.get("faster_whisper.transcribe"), "WhisperModel"):
+        time.sleep(0.2)
+    fwt = sys.modules["faster_whisper.transcribe"]
+    orig_pad, orig_enc, on, seen = fwt.pad_or_trim, fwt.WhisperModel.encode, [True], [0]
+
+    def pad(array, length=3000, **k):
+        n = array.shape[k.get("axis", -1)]
+        return orig_pad(array, min(length, n + 100 + n % 2) if on[0] else length, **k)
+
+    def encode(self, features):
+        if seen[0] < 5:  # proves the window really shrank (an older faster-whisper pads 30 s before this point)
+            seen[0] += 1
+            log(ev="short_shape", shape=list(getattr(features, "shape", ())))
+        try:
+            return orig_enc(self, features)
+        except Exception as e:  # noqa: BLE001
+            if on[0]:
+                on[0] = False
+                log(ev="short_error", err=repr(e))
+            return orig_enc(self, orig_pad(features, 3000))
+
+    fwt.pad_or_trim, fwt.WhisperModel.encode = pad, encode
+    log(ev="short_window_ready")
+
+
+def patch_cut_hook(gate=0.0):
+    """Log when the recorder queues a final clip for Whisper, and its last speech-chunk time (start_time).
+    gate > 0: drop drafts queued after `gate` s of silence, so the final pass doesn't wait behind one."""
+    while not hasattr(sys.modules.get("audio_processing_recording"), "AudioProcessor"):
+        time.sleep(0.2)
+    rec_cls = sys.modules["audio_processing_recording"].AudioProcessor
+    orig = rec_cls._queue_audio
+
+    def queue_audio(self, audio_data, final, *a, **k):
+        if final:
+            log(ev="cut", last=round(self.start_time * 1000))
+        elif gate and time.time() - self.start_time > gate:
+            log(ev="draft_gated")
+            return None
+        return orig(self, audio_data, final, *a, **k)
+
+    rec_cls._queue_audio = queue_audio
+    log(ev="cut_hook_ready")
 
 
 def patch_send_message():
@@ -52,6 +118,9 @@ def patch_send_message():
             obj = dict(result_obj, audio_source_id="main")
             log(ev="final_in" if final_audio else "draft_in", text=obj.get("text"),
                 tr=obj.get("txt_translation"))
+            if TEXT_PAUSE["low"]:  # the engine re-reads pause every 32 ms tick
+                ends = (obj.get("text") or "").strip().endswith(("。", "？", "！", "?", "!", "."))
+                TEXT_PAUSE["now"] = TEXT_PAUSE["low"] if ends and not final_audio else None
             if final_audio or settings.GetOption("realtime"):
                 threading.Thread(target=audioprocessor.plugin_process,
                                  args=(plugins or Plugins.plugins, predicted_text, obj, final_audio, settings)).start()
@@ -69,6 +138,11 @@ def patch_remote_phrase_limit():
     orig = cls.GetOption
 
     def get_option(self, name):
+        if name == "pause" and TEXT_PAUSE["now"] is not None:
+            TEXT_PAUSE["used"] += 1
+            if TEXT_PAUSE["used"] % 50 == 1:  # proves the recorder reads it (a tick at a time, so sampled)
+                log(ev="tpause_used", n=TEXT_PAUSE["used"])
+            return TEXT_PAUSE["now"]
         return settings.GetOption(name) if name == "phrase_time_limit" else orig(self, name)
 
     cls.GetOption = cls.get_option = get_option

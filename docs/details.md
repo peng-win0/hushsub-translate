@@ -201,6 +201,8 @@ The [Whispering Tiger](https://github.com/Sharrnah/whispering) engine (v1.3.20.1
 the speakers' (loopback), or the microphone's. It decodes it with the ffmpeg that comes with its download, and
 transcribes it with Whisper large-v3-turbo (Whisper small in CPU mode). Then `Plugins/subtitle_display_plugin.py`
 translates each line on the graphics card (in CPU mode, the processor) and draws the captions over the screen.
+On the graphics card it also starts Whisper 0.1 s after the speech stops, instead of waiting for the engine's full
+pause. The engine uses that result if no new speech comes before the pause ends.
 
 | File | Purpose |
 |---|---|

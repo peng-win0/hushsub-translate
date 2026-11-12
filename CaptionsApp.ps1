@@ -55,10 +55,10 @@ if (-not $first) {
 # CPU: no NVIDIA card (AMD, Intel, none), or no room on it. Whisper large-v3-turbo can't keep up with live audio on a
 # processor, Whisper small can (Ryzen 7 7840HS: English ~3 s, recognition errors 36% instead of 25%).
 $modes = [ordered]@{
-    Accurate = @{ Profile = "accurate"; GB = 6.2; Text = "~1.5 s, polished but skips more fast speech" }
-    Balanced = @{ Profile = "balanced"; GB = 3.6; Text = "~0.7 s, good translation" }
-    Fast     = @{ Profile = "fast";     GB = 3.0; Text = "~1 s, a second model for Japanese-English (NLLB: non-commercial use only)" }
-    Lite     = @{ Profile = "lite";     GB = 2.3; Text = "~0.7 s, basic translation (NLLB: non-commercial use only)" }
+    Accurate = @{ Profile = "accurate"; GB = 6.3; Text = "~1.5 s, polished but skips more fast speech" }
+    Balanced = @{ Profile = "balanced"; GB = 3.9; Text = "~0.6 s, good translation" }
+    Fast     = @{ Profile = "fast";     GB = 3.2; Text = "~1 s, a second model for Japanese-English (NLLB: non-commercial use only)" }
+    Lite     = @{ Profile = "lite";     GB = 2.7; Text = "~0.6 s, basic translation (NLLB: non-commercial use only)" }
     CPU      = @{ Profile = "cpu";      GB = 0;   Text = "~3 s, misses more words (NLLB: non-commercial use only)" }
 }
 # Downloaded models (paths in .cache, wildcards include a model's partial download zip), and the file that marks each complete
@@ -72,7 +72,7 @@ $models = [ordered]@{
     "LFM2-350M translation"        = @{ Use = "Fast"; Paths = "lfm2_enjp"; Done = "lfm2_enjp\LFM2-350M-ENJP-MT\model.safetensors" }
 }
 $budgets = "Auto", "25", "50", "75", "100"
-$autoPercent = 50  # Auto = half the GPU (room left for other apps), Balanced at most: on real streams it beat Accurate
+$autoPercent = 55  # Auto = just over half the GPU (room left for other apps; 6 GB cards still get Fast), Balanced at most: on real streams it beat Accurate
                    # (English 2.1 vs 2.7 s, Accurate left out ~40% of what was said; scored against clippers' subtitles)
 $headroomGB = 0.3  # keep this much GPU memory free for the browser/desktop
 $slowMs = 1200     # Auto steps down if a line takes longer than this to translate (RTX 4060: 0.2-0.6 s)
@@ -200,7 +200,7 @@ function Pick-Mode($b, $gpu, $extraFreeGB = 0) {
     # The best mode whose peak fits both the budget and the memory free now (+ what our running engine holds); CPU
     # when none does or there is no usable GPU ($null).
     if (-not $gpu) { return "CPU" }
-    # Auto = half the GPU, but never less than Lite needs (small GPUs still get captions if they fit)
+    # Auto = just over half the GPU, but never less than Lite needs (small GPUs still get captions if they fit)
     $budgetGB = if ($b -eq "Auto") { [Math]::Max([double]$gpu.Total * $autoPercent / 100, [double]$modes["Lite"].GB) } else { $gpu.Total * [double]$b / 100 }
     $limit = [Math]::Min([double]$budgetGB, $gpu.Free + $extraFreeGB - $headroomGB)
     $allowed = -not $script:ceiling
@@ -231,7 +231,10 @@ function Start-Captions($m, $gpu) {
     $script:running = $m
     $script:full = 0  # a count left from the last run must not cut this one's three checks short
     Save-Settings
-    # live line on/off (the engine's realtime drafts) and the languages; the engine isn't running here, so the profile is safe to edit
+    # the languages, and the engine's drafts (realtime). On the GPU they always run: a finished line that matches the
+    # last draft reuses its translation (bench: English ~0.45 s sooner), and the Live line switch only shows or hides
+    # them (the plugin reads it from app-settings.json). CPU: drafts only with the switch on (not measured there; they
+    # share the cores with the finished line). The engine isn't running here, so the profile is safe to edit
     $to = $languages[(Caption-Language)]
     # spoken Auto: Whisper detects each line's language and the plugin translates from it; src_lang only has to
     # differ from the captions' language, so the plugin loads its translator
@@ -240,7 +243,7 @@ function Start-Captions($m, $gpu) {
     $script:startKey = Start-Key $script:app
     $yamlPath = "$PSScriptRoot\app\Profiles\$($modes[$m].Profile).yaml"
     # the language code quoted: YAML reads a bare no (Norwegian) as false
-    $yaml = (Get-Content -LiteralPath $yamlPath -Encoding UTF8) -replace '^realtime: .*', "realtime: $("$([bool]$live.IsChecked)".ToLower())" `
+    $yaml = (Get-Content -LiteralPath $yamlPath -Encoding UTF8) -replace '^realtime: .*', "realtime: $("$([bool]$live.IsChecked -or $m -ne 'CPU')".ToLower())" `
         -replace '^current_language: .*', "current_language: '$($from[0])'" -replace '^src_lang: .*', "src_lang: $($from[1])" -replace '^trg_lang: .*', "trg_lang: $($to[1])" `
         -replace '^((realtime_)?whisper_precision): .*', "`$1: $(Whisper-Precision $m $gpu)"
     [IO.File]::WriteAllLines($yamlPath, [string[]]$yaml)  # UTF-8 without BOM

@@ -143,6 +143,22 @@ assert list(p.transcriptions)[-1] == "After Start." and "Said before Stop." not 
 assert "Said before Stop." not in p.originals and not p._sources, "a dropped line leaves nothing behind"
 print("pending final ok")
 
+# Live line off: drafts still translate (a final that matches reuses it) but never show, and no draft's English
+# stands in for a finished line, so a caption never changes once it shows.
+import queue
+p.cc_live, p.update_queue = False, queue.Queue()
+p.get_plugin_setting = {"transcription_keep_last": True, "transcription_display_time": 15}.get
+p._submit_translation("j", False, "jpn_Jpan"); p._show_live(sent[-1], "Hidden draft")
+p._submit_translation("k", True, "jpn_Jpan"); fin = sent[-1]
+assert "Hidden draft" not in p.transcriptions and not p._pending, p.transcriptions
+p._submit_translation("l", False, "jpn_Jpan"); p._show_live(sent[-1], "Next draft")
+p._update_intermediate_label_text()
+assert p.update_queue.get_nowait()[1] == "", "the live line stays hidden"
+p._show_final(fin, "Shown once.")
+assert list(p.transcriptions)[-1] == "Shown once." and "Hidden draft" not in p.history
+p.cc_live = True
+print("live line off ok")
+
 # VRChat chatbox: each finished line goes to VRChat on this PC, never a draft, only with the switch on. In the app the
 # engine's VRC_OSCLib sends it; here a stand-in puts each call on a local UDP socket.
 import json, socket
@@ -220,3 +236,43 @@ del sys.modules["settings"]
 p.stt("Let's look at the cats.", {"text": "Let's look at the cats."})
 assert shown[-1] == ("Let's look at the cats.", "Let's look at the cats.", True), shown
 print("live line agreement ok")
+
+# Early final: after EARLY_FINAL_AFTER s of silence the plugin runs Whisper's final pass, and the engine's own final pass
+# with the same audio takes that result (once). The CPU never gets one. Stand-ins for the engine's recorder and Whisper.
+import numpy as np
+calls = []
+class FW:
+    def transcribe(self, audio_sample, **kw):
+        calls.append(len(audio_sample))
+        return {"text": f"t{len(calls)}"}
+class Rec:
+    needs_sample_rate_conversion = False
+    def __init__(self):
+        self.frames, self.start_time = [], 0.0
+    def _callback_locked(self):
+        return "ok"
+orig_fw = FW.transcribe
+sys.modules["audio_processing_recording"] = types.SimpleNamespace(AudioProcessor=Rec)
+sys.modules["Models.STT.faster_whisper"] = types.SimpleNamespace(FasterWhisper=FW)
+sys.modules["audio_tools"] = types.SimpleNamespace()
+dev = {"ai_device": "cpu", "stt_type": "faster_whisper"}
+sys.modules["settings"] = types.SimpleNamespace(GetOption=dev.get)
+sdp.early_final()
+assert FW.transcribe is orig_fw, "no early pass on the CPU"
+dev["ai_device"] = "cuda"
+sdp.early_final()
+fw, r = FW(), Rec()
+assert r._callback_locked() == "ok" and fw.transcribe(np.zeros(5, np.float32), language="ja") == {"text": "t1"}  # a draft
+pcm = (np.arange(1600, dtype=np.int16) * 7).tobytes()
+r.frames, r.start_time = [pcm], time.time() - 0.2  # 0.2 s of silence after speech
+assert r._callback_locked() == "ok"
+end = time.time() + 5
+while len(calls) < 2 and time.time() < end:
+    time.sleep(0.01)
+audio = np.frombuffer(pcm, np.int16).astype(np.float32) / 32768.0
+assert fw.transcribe(audio, language="ja") == {"text": "t2"} and len(calls) == 2, calls  # the early result, no new pass
+assert fw.transcribe(audio, language="ja") == {"text": "t3"}, calls  # used once
+r._callback_locked()
+assert len(calls) == 3, "one early pass per pause"
+del sys.modules["settings"]
+print("early final ok")
