@@ -331,9 +331,9 @@ function Get-Theme($dark) {
     # Accent = primary, Selected = secondary container (chosen chips), Track = an off switch's track
     $theme = if ($dark) { @{ Bg = "#131314"; Card = "#1E1F20"; CardStroke = "Transparent"; Stroke = "#444746"; Text = "#E3E3E3"; Sub = "#C4C7C5"
                              ControlStroke = "#8E918F"; Hover = "#14E3E3E3"; Accent = "#A8C7FA"; OnAccent = "#062E6F"; Selected = "#004A77"
-                             OnSelected = "#C2E7FF"; Track = "#333537"; On = "#6DD58C"; Busy = "#FDD663"; Off = "#8E918F"; Bad = "#F2B8B5" } }
-             else { @{ Bg = "#F0F4F9"; Card = "#FFFFFF"; CardStroke = "Transparent"; Stroke = "#C4C7C5"; Text = "#1F1F1F"; Sub = "#444746"
-                       ControlStroke = "#747775"; Hover = "#141F1F1F"; Accent = "#0B57D0"; OnAccent = "#FFFFFF"; Selected = "#C2E7FF"
+                             OnSelected = "#C2E7FF"; Track = "#333537"; On = "#6DD58C"; Busy = "#EED27C"; Off = "#8E918F"; Bad = "#F2B8B5" } }
+             else { @{ Bg = "#F0F4F9"; Card = "#FBFCFE"; CardStroke = "Transparent"; Stroke = "#C4C7C5"; Text = "#1F1F1F"; Sub = "#444746"
+                       ControlStroke = "#747775"; Hover = "#141F1F1F"; Accent = "#0B57D0"; OnAccent = "#FBFCFE"; Selected = "#C2E7FF"
                        OnSelected = "#001D35"; Track = "#E1E3E1"; On = "#146C2E"; Busy = "#8C5000"; Off = "#747775"; Bad = "#B3261E" } }
     if ([Windows.SystemParameters]::HighContrast) {  # Windows contrast themes: their colors
         $c = { param($x) "#{0:X2}{1:X2}{2:X2}" -f $x.R, $x.G, $x.B }
@@ -608,7 +608,7 @@ $xaml = @'
           <TextBlock Text="Engine log" VerticalAlignment="Center"/>
         </DockPanel>
         <TextBox x:Name="LogBox" IsReadOnly="True" Height="260" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" BorderThickness="0"
-                 FontFamily="Cascadia Mono, Consolas" FontSize="12" Background="__Card__" Foreground="__Sub__" CaretBrush="__Text__"
+                 FontFamily="Cascadia Mono, Consolas" FontSize="13" Background="__Card__" Foreground="__Sub__" CaretBrush="__Text__"
                  SelectionBrush="__Accent__" AutomationProperties.Name="Engine log"/>
       </DockPanel>
     </Border>
@@ -1571,7 +1571,7 @@ $tick = {
         elseif (-not $installed) {
             if ($script:installer) { "Bad", "Install failed", "$(Get-Content -LiteralPath '.install-error.txt' -Raw -ErrorAction SilentlyContinue) Press $again to retry." }
             elseif ($zip) { "Off", "Download paused", ("{0:0.0} of 4.8 GB downloaded." -f $gb) }
-            else { "Off", "Not installed yet", "Downloads the engine (5 GB) and its models (3-8 GB), then starts captions." } }
+            else { "Off", "Not installed yet", "Downloads the engine (4.8 GB) and its models (3-8 GB), then starts captions." } }
         elseif ($script:restart) { "Busy", "Starting", $(if ($script:note) { $script:note } else { "Loading models: about a minute." }) }
         elseif ($dl.Count -eq 3) { "Busy", "Downloading the $($dl[0])", ("{0:0.0} of {1:0.0} GB.{2}" -f ($have / 1GB), ($total / 1GB), $speed) }
         elseif ($dl) { "Busy", "Preparing the $($dl[0])", "A minute or two..." }
@@ -1582,7 +1582,7 @@ $tick = {
         elseif ($failed) { "Bad", ("$(Get-Content -LiteralPath '.captions-failed' -ErrorAction SilentlyContinue)" -replace '^1?$', "The engine keeps crashing"), "See the log below. Press Stop, then Start." }
         elseif ($open -and $pick -eq "system") { "Busy", "Waiting for speakers", "Captions begin once Windows has speakers or headphones." }
         elseif ($open -and $pick -eq "mic" -and (Test-Path -LiteralPath ".captions-mic-blocked")) {
-            "Bad", "Windows blocks the microphone", "In Settings > Privacy & security > Microphone, turn on Microphone access and Let desktop apps access your microphone. Captions begin then." }
+            "Bad", "Windows blocks the microphone", "In Settings > Privacy & security > Microphone, turn on Microphone access and Let desktop apps access your microphone. Captions then begin." }
         elseif ($open -and $pick -eq "mic") { "Busy", "Waiting for a microphone", "Captions begin once Windows has a microphone." }
         elseif ($open) { "Busy", "Waiting for $name", "Captions begin once $name is open." }
         elseif ($engine) { "On", "On", "Another caption engine is running: close it to stop." }

@@ -24,8 +24,10 @@ with `english.py` or `fleurs.py`.
 - `sh bench/bench.sh NAME:profile`: one mode's profile, scored for errors, delay and peak GPU memory. It runs
   `run.sh`, `feed.mjs` and `waitws.mjs`, puts `zz_bench_harness.py` in `Plugins/` for the run, and scores with
   `score.mjs` and `overlay.mjs`.
-- `python bench/live_accuracy.py bench/out/NAME.jsonl`: how right the live line was.
+- `python bench/live_accuracy.py bench/out/NAME.jsonl`: how right the live line was, as the captions showed it. With
+  `--words bench/out/english.words.json` (from `english.py`), also how long after each word is said it is on screen.
 - `python bench/english.py`: English test audio from `english.txt`, read by the Windows voices.
-- `sh bench/langs.sh`: recognition per language on FLEURS clips (`fleurs.py` fetches them), ~6 min a language.
+- `sh bench/langs.sh`: recognition per language on FLEURS clips (`fleurs.py` fetches 12 per language), about 6 min a
+  language. Run it again after a stop and it carries on where it stopped.
 - `sh bench/mt/mt-run.sh`: translation only, on the sentences in `mt/` (`mt/fleurs_mt.py` makes more).
 - `node bench/osv.mjs`: known advisories in the engine's Python packages (sends only names and versions to OSV.dev).
