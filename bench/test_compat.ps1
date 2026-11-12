@@ -29,6 +29,7 @@ $script:ceiling = $null
 $gpu8 = @{ Name = "RTX 4060"; Total = 8; Free = 7.6; Driver = 581; Cap = 8.9 }
 foreach ($case in @(@("Auto", $gpu8, "Balanced"), @("100", $gpu8, "Accurate"), @("25", $gpu8, "CPU"),
                     @("Auto", @{ Name = "GTX 1650"; Total = 4; Free = 3.5; Driver = 581; Cap = 7.5 }, "Lite"),
+                    @("Auto", @{ Name = "RTX 3060 Laptop"; Total = 6; Free = 5.6; Driver = 581; Cap = 8.6 }, "Fast"),
                     @("Auto", @{ Name = "RTX 4060"; Total = 8; Free = 1; Driver = 581; Cap = 8.9 }, "CPU"), @("Auto", $null, "CPU"))) {
     $got = Pick-Mode $case[0] $case[1]
     if ($got -ne $case[2]) { Fail "mode for $($case[0]) on $($case[1].Name): $got" }

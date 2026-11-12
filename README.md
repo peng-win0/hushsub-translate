@@ -67,10 +67,10 @@ The first start of each mode downloads its models (2–8 GB). After that, captio
 
 | Mode | Delay | Graphics memory | Translation | Commercial use |
 |---|---|---|---|---|
-| Accurate | ~1.5 s | 6.2 GB | MiLMMT-46-4B: polished | Yes |
-| **Balanced** | ~0.7 s | 3.6 GB | MiLMMT-46-1B: good. Auto's pick on 8 GB cards | Yes |
-| Fast | ~1 s | 3.0 GB | LFM2 for Japanese ↔ English, NLLB for the rest. On 6 GB cards | No |
-| Lite | ~0.7 s | 2.3 GB | NLLB-600M: basic. On 4 GB cards | No |
+| Accurate | ~1.5 s | 6.3 GB | MiLMMT-46-4B: polished | Yes |
+| **Balanced** | ~0.6 s | 3.9 GB | MiLMMT-46-1B: good. Auto's pick on 8 GB cards | Yes |
+| Fast | ~1 s | 3.2 GB | LFM2 for Japanese ↔ English, NLLB for the rest. On 6 GB cards | No |
+| Lite | ~0.6 s | 2.7 GB | NLLB-600M: basic. On 4 GB cards | No |
 | CPU | ~3 s | none | NLLB-600M, with Whisper small: misses more words | No |
 
 Measured on an RTX 4060 Laptop. NLLB is licensed for non-commercial use only: for work, use Balanced or Accurate.
