@@ -53,14 +53,29 @@ def install():
         cls._submit_translation = lambda self, text, is_final, *a, **k: orig_sub(self, text, is_final, *a, **k) if is_final else None
     if run[:5] == "SHORT":  # a run named SHORTx: Whisper's encoder sees the clip's length, not a padded 30 s window
         threading.Thread(target=patch_short_window, daemon=True).start()
+    dshort = re.search(r"DSHORT(\d\d)", run)  # DSHORTnn: drafts only, window = clip + nn s; finished lines keep 30 s
+    if dshort:
+        threading.Thread(target=patch_short_window, args=(int(dshort[1]) * 100, True), daemon=True).start()
+    if "DSMALL" in run:  # drafts (live line) run on Whisper small; finished lines keep the profile's model
+        threading.Thread(target=patch_draft_model, args=("small-ct2-fp16",), daemon=True).start()
+    threading.Thread(target=patch_pass_timing, daemon=True).start()
     # Plugins load while audioprocessor is still importing; patch it once it is complete.
     threading.Thread(target=patch_send_message, daemon=True).start()
     threading.Thread(target=patch_remote_phrase_limit, daemon=True).start()
 
 
-def patch_short_window():
-    """Experiment: pad each window to the clip's length plus 1 s, not to 30 s. If CTranslate2 refuses the shorter
-    input, log it once and go back to 30 s, so the run still scores."""
+def is_draft():
+    """True inside the engine's draft (live line) pass: its whisper_ai_thread has final_audio False."""
+    f = sys._getframe(2)
+    while f and f.f_code.co_name != "whisper_ai_thread":
+        f = f.f_back
+    return f is not None and f.f_locals.get("final_audio") is False
+
+
+def patch_short_window(extra=100, drafts_only=False):
+    """Experiment: pad each window to the clip's length plus `extra` frames (100 = 1 s), not to 30 s; with
+    drafts_only, only the live line's passes. If CTranslate2 refuses the shorter input, log it once and go back to
+    30 s, so the run still scores."""
     while not hasattr(sys.modules.get("faster_whisper.transcribe"), "WhisperModel"):
         time.sleep(0.2)
     fwt = sys.modules["faster_whisper.transcribe"]
@@ -68,7 +83,8 @@ def patch_short_window():
 
     def pad(array, length=3000, **k):
         n = array.shape[k.get("axis", -1)]
-        return orig_pad(array, min(length, n + 100 + n % 2) if on[0] else length, **k)
+        short = on[0] and (not drafts_only or is_draft())
+        return orig_pad(array, min(length, n + extra + n % 2) if short else length, **k)
 
     def encode(self, features):
         if seen[0] < 5:  # proves the window really shrank (an older faster-whisper pads 30 s before this point)
@@ -84,6 +100,48 @@ def patch_short_window():
 
     fwt.pad_or_trim, fwt.WhisperModel.encode = pad, encode
     log(ev="short_window_ready")
+
+
+def patch_pass_timing():
+    """Log each Whisper encoder and decoder call: its thread, start and length, so a run shows how long a pass
+    takes on the GPU and how often a final pass shares it with a draft (`python bench/passes.py`)."""
+    while not hasattr(sys.modules.get("faster_whisper.transcribe"), "WhisperModel"):
+        time.sleep(0.2)
+    wm = sys.modules["faster_whisper.transcribe"].WhisperModel
+
+    def timed(name, orig):
+        def call(self, *a, **k):
+            t0 = time.time()
+            try:
+                return orig(self, *a, **k)
+            finally:
+                log(ev=name, th=threading.current_thread().name, t0=round(t0 * 1000), ms=round((time.time() - t0) * 1000))
+        return call
+
+    wm.encode = timed("enc", wm.encode)
+    wm.generate_with_fallback = timed("dec", wm.generate_with_fallback)
+    log(ev="pass_timing_ready")
+
+
+def patch_draft_model(name):
+    """Experiment: the engine's draft passes (whisper_ai_thread with final_audio False) go to a second, smaller
+    Whisper, so the finished line's pass less often shares the GPU with a draft."""
+    while not hasattr(sys.modules.get("faster_whisper.transcribe"), "WhisperModel"):
+        time.sleep(0.2)
+    wm = sys.modules["faster_whisper.transcribe"].WhisperModel
+    small = wm(os.path.join(ROOT, ".cache", "whisper", name), device="cuda", compute_type="int8_float16")
+    orig = wm.transcribe
+
+    def transcribe(self, *a, **k):
+        f = sys._getframe(1)
+        while f and f.f_code.co_name != "whisper_ai_thread":
+            f = f.f_back
+        if self is not small and f is not None and f.f_locals.get("final_audio") is False:
+            return orig(small, *a, **k)
+        return orig(self, *a, **k)
+
+    wm.transcribe = transcribe
+    log(ev="draft_model_ready", model=name)
 
 
 def patch_cut_hook(gate=0.0):
