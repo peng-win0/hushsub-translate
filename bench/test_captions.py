@@ -98,6 +98,16 @@ assert not sdp.is_filler("うーん" * 2000 + "X")  # a looping hallucination: l
 assert time.perf_counter() - t < 0.5
 print("fillers ok")
 
+# Whisper's text is untrusted (any audio can make it loop): no check takes seconds on a long line of junk.
+n = 10000
+for check, junk in [(sdp.strip_outro, "、" * n + "X"), (sdp.visual_order, "א" + "!" * n + "ב"),
+                    (sdp.is_char_loop, "".join(map(chr, range(0x4E00, 0x4E00 + n))))]:  # n different characters
+    t = time.perf_counter()
+    check(junk)
+    assert time.perf_counter() - t < 0.5, check.__name__  # each rescanned the line once per character
+assert sdp.is_char_loop("顔顔顎顔顤顔") and not sdp.is_char_loop("顔顎顤顔")
+print("long junk ok")
+
 # Every language the app lists has a Whisper code the plugin maps (spoken Auto) and a name MiLMMT knows.
 import re
 app = open(os.path.join(os.path.dirname(path), "..", "CaptionsApp.ps1"), encoding="ascii").read()
@@ -276,3 +286,23 @@ r._callback_locked()
 assert len(calls) == 3, "one early pass per pause"
 del sys.modules["settings"]
 print("early final ok")
+
+# A looping line: only its newest MAX_TEXT characters are translated and shown, from the mic or another audio route.
+p = sdp.SubtitleDisplayPlugin()
+p.transcriptions, p.transcription_times, p._pending, p._display_lock = deque(maxlen=3), {}, {}, threading.RLock()
+p._sources, p.originals = {}, {}
+p.update_intermediate_label_text = lambda: None
+p.get_plugin_setting = {}.get
+sys.modules["settings"] = types.SimpleNamespace(GetOption={"current_language": "ja", "src_lang": "jpn_Jpan",
+                                                           "trg_lang": "eng_Latn"}.get)
+asked = []
+p.translator = types.SimpleNamespace(submit=lambda seq, text, final, src: asked.append(text))
+long = " ".join(f"w{i}" for i in range(2000)) + " end."
+p.update_label(long, {"text": long}, is_final=True)
+assert len(asked[-1]) <= sdp.MAX_TEXT and asked[-1].endswith(" end."), ("translator input", len(asked[-1]))
+p.translator = None
+p.update_label(long, {"text": long, "audio_source_id": "desktop"}, is_final=True)
+line = p.transcriptions[-1]
+assert len(line) <= sdp.MAX_TEXT and line.endswith(" end."), ("shown", len(line))
+del sys.modules["settings"]
+print("long line ok")

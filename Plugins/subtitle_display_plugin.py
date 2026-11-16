@@ -15,7 +15,7 @@ import threading
 import queue
 import time
 import traceback
-from collections import deque
+from collections import Counter, deque
 
 # torch.hub asks github.com for the voice detector's default branch on each load, even with the model cached: a
 # privacy leak and, offline, a ~2 s stall that drops audio. Use the cached copy when there is one. (The engine's
@@ -36,6 +36,9 @@ except Exception:
     pass
 
 MAX_SCREEN_LINES = 2  # YouTube-style: never show more than this many wrapped lines
+# Whisper's text is untrusted: any audio, even a video someone plays, can make it loop. Only its newest MAX_TEXT
+# characters are checked, translated and shown; a spoken line, or a streaming line at its maximum, is never longer.
+MAX_TEXT = 2000
 # Scrolling back: the wheel over the captions shows earlier lines. The last HISTORY_LINES finished lines (about an
 # hour) are kept in memory only, never on disk, and gone when the captions stop. After HISTORY_IDLE seconds without
 # scrolling, the live captions come back by themselves.
@@ -280,8 +283,10 @@ def fit_end(text, width, measure):
 
 
 _RTL = re.compile("[֐-ࣿיִ-﷿ﹰ-﻿]")  # Hebrew and Arabic letters
-_PUNCT = "[^\\w\\s֑-ׇؐ-ًؚ-ٰٟۖ-ۭ]*"  # not letters, nor their vowel marks
-_EDGES = re.compile(f"^({_PUNCT})(.*?)({_PUNCT})$", re.S)
+_LETTERS = "\\w\\s֑-ׇؐ-ًؚ-ٰٟۖ-ۭ"  # letters, spaces and their vowel marks
+_PUNCT = f"[^{_LETTERS}]*"
+# The middle ends at the last letter: a lazy (.*?) rescanned the end punctuation from every letter (seconds on "!!!...")
+_EDGES = re.compile(f"^({_PUNCT})((?:.*[{_LETTERS}])?)({_PUNCT})$", re.S)
 _ON_NUMBER = "#$%°‰₪€£¥¢"  # signs that stay on their number's side ("50%", "$5"; bidi rule W5)
 
 
@@ -359,8 +364,9 @@ def is_filler(source_text):
 # "この動画は、ご覧いただきありがとうございます").
 # Whole-line versions are dropped by fake-lines.txt; this strips them from the end of a longer line,
 # together with a sign-off opener when that is all that precedes it ("それでは、ご視聴..." -> "", not "Well then...").
+# (?<!...): a run of spaces or 、 is tried from its start only, not from each of its characters (seconds on a long run).
 _OUTRO = re.compile(
-    r"(?:^\s*(?:それでは|それじゃあ?|では|じゃあ|ということで|さて|はい))?[\s、。,.!！]*(?:(?:(?:この|今回の)?動画(?:を|は)?[\s、,]*)?(?:最後まで)?(?:ご視聴|ご覧)(?:いただき|頂き|頂いて|いただいて|くださり|下さり)?(?:本当に)?ありがとうございま(?:した|す)"
+    r"(?:^\s*(?:それでは|それじゃあ?|では|じゃあ|ということで|さて|はい))?(?<![\s、。,.!！])[\s、。,.!！]*(?:(?:(?:この|今回の)?動画(?:を|は)?[\s、,]*)?(?:最後まで)?(?:ご視聴|ご覧)(?:いただき|頂き|頂いて|いただいて|くださり|下さり)?(?:本当に)?ありがとうございま(?:した|す)"
     r"|チャンネル登録(?:を)?(?:よろしく)?お願い(?:します|いたします)|(?:また)?次(?:回)?の動画でお会いしましょう)[\s、。,.!！]*$")
 
 
@@ -408,7 +414,7 @@ def is_fake(source_text):
 def is_char_loop(source_text):
     """Whisper junk like '顔顔顎顔顤顔': a single character makes up most of the line."""
     chars = [c for c in (source_text or "") if not c.isspace()]
-    return len(chars) >= 4 and max(map(chars.count, set(chars))) / len(chars) > 0.5
+    return len(chars) >= 4 and max(Counter(chars).values()) / len(chars) > 0.5  # one pass, not one per character
 
 
 _WORD = "0-9A-Za-zÀ-ɏЀ-ӿ"  # letters of the languages that put spaces between words (Latin, Cyrillic)
@@ -1587,7 +1593,7 @@ class SubtitleDisplayPlugin(Plugins.Base):
             print("VRChat chatbox failed:", type(e).__name__)
 
     def update_label(self, pipeline_text, result_obj, is_final=False):
-        raw_source = str(result_obj.get("text") or "")
+        raw_source = str(result_obj.get("text") or "")[-MAX_TEXT:]
         source_text = strip_outro(raw_source)
         tag = sound_tag(source_text)
         if (raw_source.strip() and not source_text.strip()) or (
@@ -1608,8 +1614,10 @@ class SubtitleDisplayPlugin(Plugins.Base):
         if is_final and self._display_lock is not None:
             with self._display_lock:
                 self._final_cut = self._seq  # drafts still being translated are outdated now
-        # the line as said, without the made-up outro (when nothing is translated, it's what is shown)
-        translated_text = tag or collapse_repeats(self._select_display_text(pipeline_text, dict(result_obj, text=source_text)))
+        # the line as said, without the made-up outro (when nothing is translated, it's what is shown); another audio
+        # route shows the text it passes on, capped the same way
+        shown = self._select_display_text(pipeline_text, dict(result_obj, text=source_text))[-MAX_TEXT:]
+        translated_text = tag or collapse_repeats(shown)
         if is_final and self.transcriptions and self.transcriptions[-1] == translated_text:
             # Same line again (e.g. a looping segment): just clear the live line, don't stack a duplicate.
             self.current_intermediate_transcription = None
