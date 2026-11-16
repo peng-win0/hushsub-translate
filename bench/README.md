@@ -26,6 +26,9 @@ with `english.py` or `fleurs.py`.
   `score.mjs` and `overlay.mjs`.
 - `python bench/live_accuracy.py bench/out/NAME.jsonl`: how right the live line was, as the captions showed it. With
   `--words bench/out/english.words.json` (from `english.py`), also how long after each word is said it is on screen.
+- `python bench/passes.py bench/out/NAME.display.jsonl`: where the Whisper time goes. How long each pass takes,
+  alone on the graphics card or sharing it, how often a finished line's early pass waits on a draft, and how close
+  the live line came to the finished text.
 - `python bench/english.py`: English test audio from `english.txt`, read by the Windows voices.
 - `sh bench/langs.sh`: recognition per language on FLEURS clips (`fleurs.py` fetches 12 per language), about 6 min a
   language. Run it again after a stop and it carries on where it stopped.
