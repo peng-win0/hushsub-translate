@@ -104,7 +104,7 @@ English, and 83% and 73% in Japanese. Japanese finished lines score 79.5% and 64
 Delays and memory were measured on an RTX 4060 Laptop (8 GB).
 
 - **Graphics card modes:** the Japanese recognition error rate is about 20.5% in each of them.
-- **CPU mode,** on a Ryzen 7 7840HS (8 cores): a finished line is ready about 2.8 s after the speech ends, and in
+- **CPU mode,** on a Ryzen 7 7840HS (8 cores): a finished line is ready about 0.7 s after the speech ends, and in
   English about 0.5 s later. Recognition errors are about 36% (Lite: about 25% on the same clips). Processors with
   fewer cores take longer.
 

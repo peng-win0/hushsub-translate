@@ -53,13 +53,13 @@ if (-not $first) {
 
 # Best first. GB = peak GPU memory measured with bench/bench.sh (RTX 4060 Laptop; times are English on screen).
 # CPU: no NVIDIA card (AMD, Intel, none), or no room on it. Whisper large-v3-turbo can't keep up with live audio on a
-# processor, Whisper small can (Ryzen 7 7840HS: English ~3 s, recognition errors 36% instead of 25%).
+# processor, Whisper small can (Ryzen 7 7840HS: English ~1.2 s, recognition errors 36% instead of 25%).
 $modes = [ordered]@{
     Accurate = @{ Profile = "accurate"; GB = 6.3; Text = "~1.5 s, polished but skips more fast speech" }
     Balanced = @{ Profile = "balanced"; GB = 3.9; Text = "~0.6 s, good translation" }
     Fast     = @{ Profile = "fast";     GB = 3.2; Text = "~1 s, a second model for Japanese-English (NLLB: non-commercial use only)" }
     Lite     = @{ Profile = "lite";     GB = 2.7; Text = "~0.6 s, basic translation (NLLB: non-commercial use only)" }
-    CPU      = @{ Profile = "cpu";      GB = 0;   Text = "~3 s, misses more words (NLLB: non-commercial use only)" }
+    CPU      = @{ Profile = "cpu";      GB = 0;   Text = "~1.2 s, misses more words (NLLB: non-commercial use only)" }
 }
 # Downloaded models (paths in .cache, wildcards include a model's partial download zip), and the file that marks each complete
 $models = [ordered]@{
@@ -233,8 +233,9 @@ function Start-Captions($m, $gpu) {
     Save-Settings
     # the languages, and the engine's drafts (realtime). On the GPU they always run: a finished line that matches the
     # last draft reuses its translation (bench: English ~0.45 s sooner), and the Live line switch only shows or hides
-    # them (the plugin reads it from app-settings.json). CPU: drafts only with the switch on (not measured there; they
-    # share the cores with the finished line). The engine isn't running here, so the profile is safe to edit
+    # them (the plugin reads it from app-settings.json). CPU: drafts only with the switch on (they share the cores with
+    # the finished line; without them, the plugin starts it early). The engine isn't running here, so the profile is
+    # safe to edit
     $to = $languages[(Caption-Language)]
     # spoken Auto: Whisper detects each line's language and the plugin translates from it; src_lang only has to
     # differ from the captions' language, so the plugin loads its translator

@@ -52,7 +52,8 @@ print("outro ok")
 assert sdp.sound_tag("8888") == sdp.sound_tag("（拍手）") == "[applause]"
 t = time.time()
 assert sdp.sound_tag("8" * 60 + "。") is None and time.time() - t < 1  # took minutes when a long run of 8s didn't match
-for line in ("Thank you for watching this video!", "  THANKS for watching this video", "ご視聴ありがとうございました。", "You."):
+for line in ("Thank you for watching this video!", "  THANKS for watching this video", "ご視聴ありがとうございました。", "You.",
+             "字幕をご覧いただきましてありがとうございました。"):
     assert sdp.is_fake(line), line                             # fake-lines.txt: any case, spacing or punctuation
 for line in ("Subtítulos realizados por la comunidad de Amara.org", "Субтитры сделал DimaTorzok",
              "请不吝点赞 订阅 转发 打赏支持明镜与点点栏目", "시청해주셔서 감사합니다"):
@@ -248,7 +249,8 @@ assert shown[-1] == ("Let's look at the cats.", "Let's look at the cats.", True)
 print("live line agreement ok")
 
 # Early final: after EARLY_FINAL_AFTER s of silence the plugin runs Whisper's final pass, and the engine's own final pass
-# with the same audio takes that result (once). The CPU never gets one. Stand-ins for the engine's recorder and Whisper.
+# with the same audio takes that result (once). The CPU gets one only without drafts. Stand-ins for the engine's
+# recorder and Whisper.
 import numpy as np
 calls = []
 class FW:
@@ -261,15 +263,19 @@ class Rec:
         self.frames, self.start_time = [], 0.0
     def _callback_locked(self):
         return "ok"
-orig_fw = FW.transcribe
+orig_fw, orig_cb = FW.transcribe, Rec._callback_locked
 sys.modules["audio_processing_recording"] = types.SimpleNamespace(AudioProcessor=Rec)
 sys.modules["Models.STT.faster_whisper"] = types.SimpleNamespace(FasterWhisper=FW)
 sys.modules["audio_tools"] = types.SimpleNamespace()
-dev = {"ai_device": "cpu", "stt_type": "faster_whisper"}
+dev = {"ai_device": "cpu", "stt_type": "faster_whisper", "realtime": True}
 sys.modules["settings"] = types.SimpleNamespace(GetOption=dev.get)
 sdp.early_final()
-assert FW.transcribe is orig_fw, "no early pass on the CPU"
-dev["ai_device"] = "cuda"
+assert FW.transcribe is orig_fw, "no early pass on the CPU with drafts"
+dev["realtime"] = False
+sdp.early_final()
+assert FW.transcribe is not orig_fw, "an early pass on the CPU without drafts"
+FW.transcribe, Rec._callback_locked = orig_fw, orig_cb
+dev["ai_device"], dev["realtime"] = "cuda", True  # the GPU always has drafts
 sdp.early_final()
 fw, r = FW(), Rec()
 assert r._callback_locked() == "ok" and fw.transcribe(np.zeros(5, np.float32), language="ja") == {"text": "t1"}  # a draft
@@ -286,6 +292,27 @@ r._callback_locked()
 assert len(calls) == 3, "one early pass per pause"
 del sys.modules["settings"]
 print("early final ok")
+
+# Short window on the CPU: Whisper's transcription pads a line to SHORT_WINDOW frames past its end, not to 30 s
+# (3000 frames). Language detection, the GPU and other speech engines keep 30 s. A stand-in for faster-whisper.
+def pad_or_trim(array, length=3000, *, axis=-1):
+    return np.pad(array, ((0, 0), (0, max(0, length - array.shape[-1]))))[:, :length]
+fwt = types.SimpleNamespace(pad_or_trim=pad_or_trim, WhisperModel=object)
+sys.modules["faster_whisper.transcribe"] = fwt
+def generate_segments(n):
+    return fwt.pad_or_trim(np.zeros((80, n), np.float32)).shape[-1]
+def detect_language(n):
+    return fwt.pad_or_trim(np.zeros((80, n), np.float32)).shape[-1]
+for device, stt in (("cuda", "faster_whisper"), ("cpu", "transformer_whisper")):
+    sys.modules["settings"] = types.SimpleNamespace(GetOption={"ai_device": device, "stt_type": stt}.get)
+    sdp.short_window()
+    assert generate_segments(500) == 3000, (device, stt)
+sys.modules["settings"] = types.SimpleNamespace(GetOption={"ai_device": "cpu", "stt_type": "faster_whisper"}.get)
+sdp.short_window()
+assert [generate_segments(n) for n in (500, 501, 2500)] == [1500, 1502, 3000], "line + 10 s, even, at most 30 s"
+assert detect_language(500) == 3000, "language detection keeps 30 s"
+del sys.modules["settings"], sys.modules["faster_whisper.transcribe"]
+print("short window ok")
 
 # A looping line: only its newest MAX_TEXT characters are translated and shown, from the mic or another audio route.
 p = sdp.SubtitleDisplayPlugin()

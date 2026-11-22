@@ -494,8 +494,9 @@ EARLY_FINAL_STARTED = []
 def early_final():
     """Start Whisper's final pass after EARLY_FINAL_AFTER s of silence, not the engine's full pause (bench: finished
     lines about 70 ms sooner, same text). When the pause ends with the same audio, the engine's own final pass takes
-    the ready result; if speech goes on, the early one is dropped. GPU only: on the CPU it would slow everything
-    else. It patches engine internals, so an engine that doesn't match leaves it off. Results stay in memory."""
+    the ready result; if speech goes on, the early one is dropped. On the GPU, and on the CPU without drafts (bench,
+    with short_window: English ~0.5 s sooner). It patches engine internals, so an engine that doesn't match leaves it
+    off. Results stay in memory."""
     import hashlib
     import sys
 
@@ -511,7 +512,9 @@ def early_final():
     import audio_tools
     import settings
     g = settings.GetOption
-    if not EARLY_FINAL_AFTER or g("ai_device") != "cuda" or g("stt_type") != "faster_whisper":
+    dev = g("ai_device")
+    # the CPU only without drafts: there a pass takes all the cores, and drafts already keep them busy
+    if not EARLY_FINAL_AFTER or g("stt_type") != "faster_whisper" or not (dev == "cuda" or dev == "cpu" and not g("realtime")):
         return
     rec_cls, fw_cls = rec.AudioProcessor, fw.FasterWhisper
     orig_tr, orig_cb = fw_cls.transcribe, rec_cls._callback_locked
@@ -583,6 +586,37 @@ def early_final():
         return res
 
     fw_cls.transcribe, rec_cls._callback_locked = transcribe, callback_locked
+
+
+SHORT_WINDOW = 1000  # CPU only: mel frames (1000 = 10 s) Whisper sees after a line, not the line padded to 30 s
+
+
+def short_window():
+    """On the CPU, Whisper's window is the line plus SHORT_WINDOW frames, not the line padded to 30 s, so its encoder
+    does a third of the work (bench, Whisper small on 8 cores: English on screen ~1 s sooner, same shown errors).
+    Only while transcribing: language detection keeps 30 s. Not on the GPU: there the pass is quick already, and
+    turbo makes up text on a window this short (bench, clip + 1 s)."""
+    import sys
+
+    for _ in range(1200):  # the engine imports Whisper when it loads the model
+        fwt = sys.modules.get("faster_whisper.transcribe")
+        if hasattr(fwt, "WhisperModel"):  # fully imported
+            break
+        time.sleep(0.5)
+    else:
+        return
+    import settings
+    if settings.GetOption("ai_device") != "cpu" or settings.GetOption("stt_type") != "faster_whisper":
+        return
+    orig = fwt.pad_or_trim
+
+    def pad_or_trim(array, length=3000, **kw):
+        if sys._getframe(1).f_code.co_name == "generate_segments":
+            n = array.shape[kw.get("axis", -1)]
+            length = min(length, n + n % 2 + SHORT_WINDOW)  # an even length, like the 30 s window
+        return orig(array, length, **kw)
+
+    fwt.pad_or_trim = pad_or_trim
 
 
 class PluginTranslator:
@@ -1384,6 +1418,7 @@ class SubtitleDisplayPlugin(Plugins.Base):
         if self.is_enabled(False) and not EARLY_FINAL_STARTED:
             EARLY_FINAL_STARTED.append(True)
             threading.Thread(target=early_final, daemon=True).start()
+            threading.Thread(target=short_window, daemon=True).start()
 
         if self.root is None and self.is_enabled(False):
             self.update_queue = queue.Queue()
