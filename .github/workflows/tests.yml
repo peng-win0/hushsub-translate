@@ -44,4 +44,5 @@ jobs:
       - run: powershell -NoProfile -ExecutionPolicy Bypass -File bench/test_compat.ps1
       - run: powershell -NoProfile -ExecutionPolicy Bypass -File bench/test_exe.ps1
       - run: powershell -NoProfile -ExecutionPolicy Bypass -File bench/test_app.ps1
+      - run: powershell -NoProfile -ExecutionPolicy Bypass -File bench/test_a11y.ps1
       - run: powershell -NoProfile -ExecutionPolicy Bypass -File bench/test_zip.ps1
