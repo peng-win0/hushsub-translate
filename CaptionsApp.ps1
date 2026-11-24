@@ -5,6 +5,8 @@
 # hidden console window; its text shows in this window (Show log). Stop closes that console: the same graceful stop as
 # its X. Never force-kills.
 # The window is WPF (part of Windows) styled after Google's apps (Material 3): their colors, shapes and controls, light/dark.
+# .NET's newer accessibility, before WPF loads: without it a screen reader never hears a status change (Set-Status)
+[AppContext]::SetSwitch("Switch.UseLegacyAccessibilityFeatures", $false)
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
 trap { [void][Windows.MessageBox]::Show("Hushsub Translate failed to start:`n$_", "Hushsub Translate"); break }  # no console to show it
 Add-Type -Name Win -Namespace W -MemberDefinition @'
@@ -1492,6 +1494,13 @@ $lnkButton.Add_Click({
 $script:ticks = 0
 $script:modelTicks = 0
 $script:updateTicks = 0
+function Set-Status($title, $text) {  # a screen reader says each new status once (title and text), not each tick of a download
+    $new = $statusTitle.Text -cne $title
+    $statusTitle.Text, $statusText.Text = $title, $text
+    [Windows.Automation.AutomationProperties]::SetName($statusTitle, "$title. $text")
+    [Windows.Automation.AutomationProperties]::SetLiveSetting($statusTitle, "Polite")
+    if ($new) { [Windows.Automation.Peers.UIElementAutomationPeer]::CreatePeerForElement($statusTitle).RaiseAutomationEvent("LiveRegionChanged") }
+}
 $tick = {
     $installing = $script:installer -and -not $script:installer.HasExited
     $updating = $script:updater -and -not $script:updater.HasExited
@@ -1597,8 +1606,7 @@ $tick = {
             [Windows.Media.Animation.Timeline]::SetDesiredFrameRate($a, 30); $a }
         $dot.BeginAnimation([Windows.UIElement]::OpacityProperty, $breathe)  # $null: still
     }
-    $statusTitle.Text = $title
-    $statusText.Text = $text
+    Set-Status $title $text
 
     # updates: checked daily; with auto-update on, a newer version installs once captions are off
     $latest = "$(Get-Content -LiteralPath '.update-latest' -ErrorAction SilentlyContinue)".Trim()
