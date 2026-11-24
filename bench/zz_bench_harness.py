@@ -51,8 +51,9 @@ def install():
     if "NODRTR" in run:  # drafts are not translated (no English live line): does translating them delay finals?
         orig_sub = cls._submit_translation
         cls._submit_translation = lambda self, text, is_final, *a, **k: orig_sub(self, text, is_final, *a, **k) if is_final else None
-    if run[:5] == "SHORT":  # a run named SHORTx: Whisper's encoder sees the clip's length, not a padded 30 s window
-        threading.Thread(target=patch_short_window, daemon=True).start()
+    short = re.match(r"SHORT(\d\d)?", run)  # SHORTx: Whisper's encoder sees the clip's length + 1 s, not a padded 30 s
+    if short:  # window; SHORTnn: + nn s (for a model trained for short windows, ACFT)
+        threading.Thread(target=patch_short_window, args=(int(short[1] or 1) * 100,), daemon=True).start()
     dshort = re.search(r"DSHORT(\d\d)", run)  # DSHORTnn: drafts only, window = clip + nn s; finished lines keep 30 s
     if dshort:
         threading.Thread(target=patch_short_window, args=(int(dshort[1]) * 100, True), daemon=True).start()
