@@ -210,7 +210,7 @@ function Get-Model($m) {
     }
     if ($ok -or (-not $good -and (& $size) -ge $m.Size)) { Remove-Item -LiteralPath $zip -ErrorAction SilentlyContinue }  # done, or damaged (a good zip that did not unpack, disk full, stays for the next Start)
     Remove-Item -LiteralPath ".captions-download" -ErrorAction SilentlyContinue
-    if (-not $ok) { Write-Host "Could not download the $($m.Label). Check your internet connection, then press Start to continue."; "Download failed" }
+    if (-not $ok) { Write-Host "Could not download the $($m.Label). Check your internet connection, then press Stop and Start to continue."; "Download failed" }
 }
 $downloadFailed = $false
 $profileName = [IO.Path]::GetFileNameWithoutExtension($ProfilePath)

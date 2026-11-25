@@ -53,6 +53,8 @@ The window has two pages: Captions and App.
     defaults.
   - To move the captions, drag them anywhere. They stay there in every mode and after updates. Clicking them never
     takes the keyboard from the video or game below.
+  - If you can't drag, use the Move buttons (Left, Right, Up, Down) while captions are on. Each press moves the
+    captions 40 pixels. With the keyboard, Tab to a button and press Enter or Space.
   - To read lines you missed, scroll the mouse wheel over the captions. Scroll down or click them to go back to live
     captions; they also go back by themselves after 15 seconds.
   - The last 1,000 lines are kept in memory only, and are gone when captions stop.

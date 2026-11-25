@@ -42,6 +42,45 @@ $during = & $click
 $script:updater, $script:updateApply = $null, $false
 if ($during) { throw "Start pressed while an update installs ran $during" }
 if (-not (& $click)) { throw "Start pressed with no update did nothing, so the check above checks nothing" }
+# the Move buttons (for people who can't drag the captions): on only while captions show, each asks the plugin for its own move
+if ($moveButtons.IsEnabled) { throw "Move buttons on while captions are off" }
+function Ours-Open { $true }
+& $tick
+if (-not $moveButtons.IsEnabled) { throw "Move buttons off while captions are on" }
+$asked = foreach ($b in $moveButtons.Children) { if ($b -is [Windows.Controls.Button]) {
+    $b.RaiseEvent((New-Object Windows.RoutedEventArgs ([Windows.Controls.Primitives.ButtonBase]::ClickEvent)))
+    "$([Windows.Automation.AutomationProperties]::GetName($b)): $(Get-Content -LiteralPath "$PSScriptRoot\.captions-move")" } }
+if (($asked -join "; ") -ne "Move captions left: -40 0; Move captions right: 40 0; Move captions up: 0 -40; Move captions down: 0 40") { throw "Move buttons asked for: $($asked -join '; ')" }
+Set-Content -LiteralPath "$PSScriptRoot\.captions-paused" -Value ""
+& $tick
+if ($moveButtons.IsEnabled) { throw "Move buttons on while captions are paused" }
+if (Engine-Installed) {  # Stop pauses the engine; after a failed start ("Press Stop, then Start") it closes it, so Start starts anew
+    Remove-Item -LiteralPath "$PSScriptRoot\.captions-paused"
+    $null = & $click
+    if ($script:stopping -or -not (Test-Path -LiteralPath "$PSScriptRoot\.captions-paused")) { throw "Stop while captions run didn't pause them" }
+    Remove-Item -LiteralPath "$PSScriptRoot\.captions-paused"; Set-Content -LiteralPath "$PSScriptRoot\.captions-failed" -Value "Download failed"
+    $null = & $click
+    if (-not $script:stopping) { throw "Stop after a failed start left its console open: Start would only resume it" }
+    $script:stopping = $null; Remove-Item -LiteralPath "$PSScriptRoot\.captions-failed"
+}
+function Ours-Open { $false }  # nothing to stop as the test ends
+# icons are decoration beside a label: on no page is a screen reader read their private-use characters, or Tab stopped on one
+function Drawn($e) { $e; for ($i = 0; $i -lt [Windows.Media.VisualTreeHelper]::GetChildrenCount($e); $i++) { Drawn ([Windows.Media.VisualTreeHelper]::GetChild($e, $i)) } }
+$icons = @{}; $stops = @()
+foreach ($page in { }, { $win.FindName("AppTabButton").IsChecked = $true }, { Show-Help $true }) {
+    & $page
+    $win.Content.Measure((New-Object Windows.Size 800, 100000)); $win.Content.Arrange((New-Object Windows.Rect 0, 0, 800, 100000)); $win.Content.UpdateLayout()
+    foreach ($e in Drawn $win.Content) {
+        if ($e.GetType() -eq [Windows.Controls.Control] -and $e.Focusable) { $stops += $e }
+        $peer = if ($e -is [Windows.UIElement]) { [Windows.Automation.Peers.UIElementAutomationPeer]::CreatePeerForElement($e) }
+        if ($peer -and $peer.GetName() -match "[$([char]0xE000)-$([char]0xF8FF)]") { $icons[$e] = $peer.IsControlElement() -or $peer.IsContentElement() }
+    }
+}
+$read = @($icons.Keys | Where-Object { $icons[$_] })
+if ($icons.Count -lt 20) { throw "only $($icons.Count) icons found on the three pages: this check checks nothing" }
+if ($read) { throw "a screen reader is read $($read.Count) of $($icons.Count) icons: $(($read | ForEach-Object { '{0:X}' -f [int]$_.Text[0] }) -join ' ')" }
+if ($stops) { throw "Tab stops on $($stops.Count) icons" }
+if ([Windows.Automation.AutomationProperties]::GetName($win.FindName("HelpBack")) -ne "Back to settings") { throw "the Back button (an arrow and Back) doesn't say where it goes" }
 Set-Content "$PSScriptRoot\ok.txt" "ok"
 '@))
     if ($installed) { $patches += , @('function Engine-Installed { Test-Path -LiteralPath "audioWhisper\audioWhisper.exe" }', 'function Engine-Installed { $true }') }

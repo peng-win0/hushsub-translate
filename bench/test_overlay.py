@@ -11,6 +11,7 @@ tmp = tempfile.mkdtemp()  # never the real app-settings.json / .captions-positio
 sdp.APP_SETTINGS = os.path.join(tmp, "app-settings.json")
 sdp.POSITION_FILE = os.path.join(tmp, ".captions-position")
 sdp.PAUSE_FILE = os.path.join(tmp, ".captions-paused")
+sdp.MOVE_FILE = os.path.join(tmp, ".captions-move")
 sdp.APP_MUTEX = "Local\\PrivateCaptionsTest%d" % os.getpid()  # never the real app's
 opts = {"stt_enabled": True}  # the engine's settings
 sys.modules["settings"] = types.SimpleNamespace(GetOption=opts.get, SetOption=opts.__setitem__)
@@ -72,10 +73,18 @@ def items(canvas):
     return [canvas.type(i) for i in canvas.find_withtag("cc")]
 
 
+def press(root, dx, dy):  # a Move button in the app (for people who can't drag), as its Set-Content writes the file
+    with open(sdp.MOVE_FILE, "w") as f:
+        f.write(f"{dx} {dy}\r\n")
+    pump_until(root, lambda: not os.path.exists(sdp.MOVE_FILE))
+    root.update()
+
+
 def checks(_root=None, n=0):
     p, root = plugin, plugin.root
-    root.update()
+    pump(root, 0.3)
     s = p.cc_scale  # the display's scale (2.0 at 200%): saved positions and the profile's sizes are at 100%
+    assert not os.path.exists(sdp.MOVE_FILE), "a Move press the last run never saw is dropped"
     assert (root.winfo_x(), root.winfo_y()) == (round(-10000 * s),) * 2, "the saved position wins over the profile's"
     assert root.winfo_width() == round(900 * s), "the profile's width, scaled"
     p.update_queue.put((["first caption line here"], "and the live line"))
@@ -94,6 +103,22 @@ def checks(_root=None, n=0):
     assert (root.winfo_x(), root.winfo_y()) == (text_win.winfo_x(), text_win.winfo_y()) == (x0 + 100, y0 + 50)
     with open(sdp.POSITION_FILE) as f:
         assert json.load(f) == {"x": round((x0 + 100) / s), "y": round((y0 + 50) / s)}, "the new spot is kept"
+    # the app's Move buttons do the same without a drag: 40 pixels a press (at 100% scale), two quick presses add up
+    step = round(40 * s)
+    x0, y0 = root.winfo_x(), root.winfo_y()
+    press(root, 40, 0)
+    press(root, 40, -40)
+    assert (root.winfo_x(), root.winfo_y()) == (text_win.winfo_x(), text_win.winfo_y()) == (x0 + 2 * step, y0 - step)
+    with open(sdp.POSITION_FILE) as f:
+        assert json.load(f) == {"x": round((x0 + 2 * step) / s), "y": round((y0 - step) / s)}, "the new spot is kept"
+    crashes = []
+    root.report_callback_exception = lambda *error: crashes.append(error)
+    open(sdp.MOVE_FILE, "w").close()  # made by the app, not written yet: no move and no error, read again at the next check
+    pump(root, 0.1)
+    assert not crashes and root.winfo_x() == x0 + 2 * step and os.path.exists(sdp.MOVE_FILE)
+    del root.report_callback_exception
+    press(root, -80, 40)
+    assert (root.winfo_x(), root.winfo_y()) == (x0, y0), "and back"
 
     # scrolling back: the wheel shows earlier lines with a hint above them, a click or 15 s idle returns to live
     from collections import deque
@@ -127,6 +152,12 @@ def checks(_root=None, n=0):
     p.text_canvas.event_generate("<MouseWheel>", delta=-240)
     root.update()
     assert shown() == ["a new line"] and root.winfo_height() == h0, "scrolled down past the newest: live"
+    p.text_canvas.event_generate("<MouseWheel>", delta=120)
+    root.update()
+    press(root, 0, 40)  # a Move button while scrolled back: live again, moved from where the captions were
+    assert shown() == ["a new line"] and (root.winfo_x(), root.winfo_y(), root.winfo_height()) == (x0, y0 + round(40 * s), h0)
+    press(root, 0, -40)
+    assert (root.winfo_x(), root.winfo_y()) == (x0, y0)
 
     # Show original: the spoken line, small, above the captions; scrolling back shows it above each line
     y0 = root.winfo_y()
@@ -226,6 +257,8 @@ def checks(_root=None, n=0):
 write_style({}, 1_000_000_000)
 with open(sdp.POSITION_FILE, "w") as f:
     json.dump({"x": -10000, "y": -10000}, f)  # off-screen; dragged there earlier, maybe in another mode
+with open(sdp.MOVE_FILE, "w") as f:
+    f.write("40 0")  # a Move button pressed as the last run ended
 plugin = Stub()
 plugin.update_queue = queue.Queue()
 plugin._display_lock = threading.RLock()  # as init() makes it
