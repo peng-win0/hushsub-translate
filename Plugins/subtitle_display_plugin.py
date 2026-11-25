@@ -111,6 +111,8 @@ STATS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".ca
 POSITION_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".captions-position")
 # The app's Stop: while this file exists the captions hide and the engine doesn't listen (its models stay loaded)
 PAUSE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".captions-paused")
+# The app's Move buttons, for people who can't drag: "dx dy" in 100%-scale pixels, removed once the captions moved
+MOVE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".captions-move")
 # Held by the app window while it's open (CaptionsApp.ps1). A paused engine whose app was killed or crashed closes
 # itself: nothing else would, and it holds GBs of GPU memory while nothing shows.
 APP_MUTEX = "Local\\PrivateCaptionsApp"
@@ -1081,6 +1083,18 @@ class SubtitleDisplayPlugin(Plugins.Base):
             for w in (box_win, self.root, text_win):
                 show_window(w, not paused)
 
+        def move_asked():  # a Move button in the app: the same as dragging the captions that far
+            try:
+                with open(MOVE_FILE, encoding="utf-8") as f:
+                    dx, dy = map(int, f.read().split())
+                os.remove(MOVE_FILE)
+            except (OSError, ValueError):
+                return  # no press, or the app is still writing it: at the next check
+            to_live()  # as a click on the captions does
+            self.root.update_idletasks()  # winfo_x lags until the last move is drawn
+            x, y = place(self.cc_height, self.root.winfo_x() + round(dx * scale), self.root.winfo_y() + round(dy * scale))
+            save_position(x, y)
+
         def check_queue():
             if self.close_requested.get():
                 self.root.quit()
@@ -1101,6 +1115,7 @@ class SubtitleDisplayPlugin(Plugins.Base):
                 if not self.cc_ticks and not app_open():
                     close_console()
                 return
+            move_asked()
             if self.cc_back is not None and time.time() - self.cc_back_at > HISTORY_IDLE:
                 to_live()
             if frame is not None and frame != self.cc_frame:  # the 1 s refresh mostly repeats the last frame
@@ -1330,6 +1345,10 @@ class SubtitleDisplayPlugin(Plugins.Base):
         for w in (box_win, self.root, text_win):
             no_focus(w)
         self.cc_paused, self.cc_ticks = False, 0
+        try:
+            os.remove(MOVE_FILE)  # a press the last run never saw must not move these captions
+        except OSError:
+            pass
         if os.path.exists(PAUSE_FILE):  # loaded ahead by the app, paused until Start
             set_paused(True)
 
@@ -1548,11 +1567,14 @@ class SubtitleDisplayPlugin(Plugins.Base):
             self.history = deque(maxlen=HISTORY_LINES)
         self.history.append(text)
 
-    def _replace_in_history(self, old, text):
+    def _replace_in_history(self, old, text):  # text None: takes `old` out
         h = self.history or ()
         for i in range(len(h) - 1, max(len(h) - 50, 0) - 1, -1):  # it is one of the newest
             if h[i] == old:
-                h[i] = text
+                if text is None:
+                    del h[i]
+                else:
+                    h[i] = text
                 return
 
     def _append_final(self, text):
@@ -1564,14 +1586,17 @@ class SubtitleDisplayPlugin(Plugins.Base):
         return False
 
     def _replace_final(self, old, text):
-        """Swaps the shown line `old` for `text` in place, keeping its expiry. False if `old` is no longer shown."""
-        if old not in self.transcriptions:
-            return False
+        """Swaps the shown line `old` for `text` in place, keeping its expiry. False if `text` is the line just
+        above it (a looping segment, as in _append_final): `old` goes and nothing new shows."""
         if old != text:
             i = len(self.transcriptions) - 1 - list(reversed(self.transcriptions)).index(old)
+            shown = self.transcription_times.pop(old, time.time())
+            if i and self.transcriptions[i - 1] == text:
+                del self.transcriptions[i]
+                self._replace_in_history(old, None)
+                return False
             self.transcriptions[i] = text
             self._replace_in_history(old, text)
-            shown = self.transcription_times.pop(old, time.time())
             self.transcription_times[text] = shown
             self._trace("final_upgraded", old=old, text=text, after_ms=round(1000 * (time.time() - shown)))
         return True
@@ -1591,7 +1616,7 @@ class SubtitleDisplayPlugin(Plugins.Base):
             if self._live_seq <= seq:
                 self.current_intermediate_transcription = None  # the live line was this sentence
             old = self._pending.pop(seq, None)
-            new = (old is not None and self._replace_final(old, text)) or self._append_final(text)
+            new = self._replace_final(old, text) if old in self.transcriptions else self._append_final(text)
             self._keep_original(text, original)
         self.update_intermediate_label_text()
         if new:

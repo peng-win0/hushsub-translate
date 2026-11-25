@@ -65,8 +65,8 @@ The settings:
   way. Japanese to English works best.
 - **Listen to:** Auto follows the open browser. You can also pick one app, All PC sound for everything, or
   Microphone.
-- **Caption style:** the same options as YouTube. Drag the captions anywhere. To read lines you missed, scroll the
-  mouse wheel over them.
+- **Caption style:** the same options as YouTube. Drag the captions anywhere, or use the Move buttons. To read
+  lines you missed, scroll the mouse wheel over them.
 - **Live line:** off by default, so a caption never changes once it shows. Turn it on to see words as they are
   spoken.
 - **Show original:** what was said, in small text above the translation (and above each line when you scroll back).
@@ -98,7 +98,7 @@ For work, use Balanced or Accurate. Fast, Lite and CPU use NLLB, which is licens
 - **"Windows blocks the microphone":** open Windows Settings > Privacy & security > Microphone. Turn on Microphone
   access and Let desktop apps access your microphone. Captions then begin.
 - **CPU mode on an NVIDIA card:** other apps are using the graphics memory. Close them, then press Stop and Start.
-- **A download failed:** press Start or Resume again. It continues where it stopped. If a DNS filter blocks it
+- **A download failed:** press Resume, or Stop and then Start. It continues where it stopped. If a DNS filter blocks it
   (Cloudflare WARP for Families, NextDNS, Pi-hole), allow `contabostorage.com` until the install finishes.
 - **Private Captions 1.4 or older finds no update:** Private Captions is the app's old name, and the page it checks
   is gone. Download the ZIP above and open `Hushsub Translate.bat`. The new version installs next to the old one and

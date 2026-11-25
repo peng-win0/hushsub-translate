@@ -133,3 +133,12 @@ foreach ($p in $profiles) {
     }
 }
 "privacy settings ok"
+
+# Every offline test is run by CI and is in the runbook's list: one left out of either is a test nobody runs
+foreach ($doc in ".github\workflows\tests.yml", "docs\runbook.md") {
+    $text = [IO.File]::ReadAllText("$PSScriptRoot\..\$doc")
+    foreach ($f in Get-ChildItem -LiteralPath $PSScriptRoot -Filter test_*) {
+        if (-not $text.Contains("bench/$($f.Name)")) { Fail "$doc doesn't run bench/$($f.Name)" }
+    }
+}
+"test lists ok"

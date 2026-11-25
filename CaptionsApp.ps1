@@ -372,8 +372,15 @@ $xaml = @'
     <Style x:Key="Caption" TargetType="TextBlock">
       <Setter Property="Foreground" Value="__Sub__"/><Setter Property="FontSize" Value="13"/><Setter Property="TextWrapping" Value="Wrap"/>
     </Style>
-    <Style x:Key="Icon" TargetType="TextBlock">
-      <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets"/><Setter Property="FontSize" Value="20"/>
+    <!-- icons are decoration beside a label: text drawn by a template is not read out by screen readers (Tag: the icon) -->
+    <Style x:Key="Glyph" TargetType="Control">
+      <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets"/><Setter Property="Focusable" Value="False"/>
+      <Setter Property="Template"><Setter.Value>
+        <ControlTemplate TargetType="Control"><TextBlock Text="{TemplateBinding Tag}"/></ControlTemplate>
+      </Setter.Value></Setter>
+    </Style>
+    <Style x:Key="Icon" TargetType="Control" BasedOn="{StaticResource Glyph}">
+      <Setter Property="FontSize" Value="20"/>
       <Setter Property="Foreground" Value="__Sub__"/><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="Margin" Value="2,0,18,0"/>
       <Setter Property="DockPanel.Dock" Value="Left"/>
     </Style>
@@ -632,7 +639,7 @@ $xaml = @'
     <StackPanel x:Name="Languages">
       <Border Style="{StaticResource Top}">
         <DockPanel>
-          <TextBlock Style="{StaticResource Icon}" Text="&#xE767;"/>
+          <Control Style="{StaticResource Icon}" Tag="&#xE767;"/>
           <ComboBox x:Name="Spoken" Style="{StaticResource Dropdown}" AutomationProperties.Name="Spoken"/>
           <StackPanel VerticalAlignment="Center">
             <TextBlock Text="Spoken"/>
@@ -642,7 +649,7 @@ $xaml = @'
       </Border>
       <Border Style="{StaticResource Bottom}">
         <DockPanel>
-          <TextBlock Style="{StaticResource Icon}" Text="&#xED1E;"/>
+          <Control Style="{StaticResource Icon}" Tag="&#xED1E;"/>
           <ComboBox x:Name="CaptionLang" Style="{StaticResource Dropdown}" AutomationProperties.Name="Captions in"/>
           <StackPanel VerticalAlignment="Center">
             <TextBlock Text="Captions in"/>
@@ -654,7 +661,7 @@ $xaml = @'
     <TextBlock Style="{StaticResource Section}" Text="Display"/>
     <Border Style="{StaticResource Top}">
       <DockPanel>
-        <TextBlock Style="{StaticResource Icon}" Text="&#xE7F0;"/>
+        <Control Style="{StaticResource Icon}" Tag="&#xE7F0;"/>
         <CheckBox x:Name="Live" Style="{StaticResource Toggle}" AutomationProperties.Name="Live line" VerticalAlignment="Center" Margin="16,0,0,0"/>
         <StackPanel>
           <TextBlock Text="Live line"/>
@@ -664,7 +671,7 @@ $xaml = @'
     </Border>
     <Border Style="{StaticResource Card}">
       <DockPanel>
-        <TextBlock Style="{StaticResource Icon}" Text="&#xE8C1;"/>
+        <Control Style="{StaticResource Icon}" Tag="&#xE8C1;"/>
         <CheckBox x:Name="ShowOriginal" Style="{StaticResource Toggle}" AutomationProperties.Name="Show original" VerticalAlignment="Center" Margin="16,0,0,0"/>
         <StackPanel>
           <TextBlock Text="Show original"/>
@@ -675,11 +682,11 @@ $xaml = @'
     <Border Style="{StaticResource Bottom}">
       <StackPanel>
         <DockPanel>
-          <TextBlock Style="{StaticResource Icon}" Text="&#xE8D2;"/>
+          <Control Style="{StaticResource Icon}" Tag="&#xE8D2;"/>
           <Button x:Name="StyleReset" Style="{StaticResource Standard}" DockPanel.Dock="Right" VerticalAlignment="Top" Padding="16,5,16,6" Margin="16,0,0,0" Content="Reset"/>
           <StackPanel>
             <TextBlock Text="Caption style"/>
-            <TextBlock Style="{StaticResource Caption}" Text="To move captions, drag them."/>
+            <TextBlock Style="{StaticResource Caption}" Text="To move captions, drag them, or use the Move buttons while captions are on."/>
           </StackPanel>
         </DockPanel>
         <Border Margin="40,12,0,4" CornerRadius="12" Padding="0,22">
@@ -692,6 +699,14 @@ $xaml = @'
             </Border>
           </Border>
         </Border>
+        <!-- for people who can't drag: each press moves the captions 40 pixels (Tag: x y; the plugin reads .captions-move) -->
+        <WrapPanel x:Name="MoveButtons" Margin="40,8,0,0">
+          <TextBlock Style="{StaticResource Caption}" Text="Move" VerticalAlignment="Center" Margin="0,0,12,4"/>
+          <Button Style="{StaticResource Standard}" Padding="16,5,16,6" Margin="0,0,8,4" Content="Left" Tag="-40 0" AutomationProperties.Name="Move captions left"/>
+          <Button Style="{StaticResource Standard}" Padding="16,5,16,6" Margin="0,0,8,4" Content="Right" Tag="40 0" AutomationProperties.Name="Move captions right"/>
+          <Button Style="{StaticResource Standard}" Padding="16,5,16,6" Margin="0,0,8,4" Content="Up" Tag="0 -40" AutomationProperties.Name="Move captions up"/>
+          <Button Style="{StaticResource Standard}" Padding="16,5,16,6" Margin="0,0,8,4" Content="Down" Tag="0 40" AutomationProperties.Name="Move captions down"/>
+        </WrapPanel>
         <Button x:Name="StyleMore" Style="{StaticResource Link}" HorizontalAlignment="Left" Margin="30,4,0,0" Content="Show options"/>
         <StackPanel x:Name="StyleRows" Margin="40,0,0,0" Visibility="Collapsed"/>
       </StackPanel>
@@ -700,7 +715,7 @@ $xaml = @'
     <Border Style="{StaticResource Alone}">
       <StackPanel>
         <DockPanel>
-          <TextBlock Style="{StaticResource Icon}" Text="&#xE8D4;"/>
+          <Control Style="{StaticResource Icon}" Tag="&#xE8D4;"/>
           <StackPanel>
             <TextBlock Text="Your words"/>
             <TextBlock Style="{StaticResource Caption}" Text="Fix names, one per line: heard = shown (&#x30DE;&#x30EA;&#x30A2; = Maria)."/>
@@ -724,7 +739,7 @@ $xaml = @'
     <Border Style="{StaticResource Top}">
       <StackPanel>
         <DockPanel>
-          <TextBlock Style="{StaticResource Icon}" Text="&#xE790;"/>
+          <Control Style="{StaticResource Icon}" Tag="&#xE790;"/>
           <StackPanel>
             <TextBlock Text="Theme"/>
             <TextBlock Style="{StaticResource Caption}" Text="System: matches Windows."/>
@@ -735,7 +750,7 @@ $xaml = @'
     </Border>
     <Border Style="{StaticResource Card}">
       <DockPanel>
-        <TextBlock Style="{StaticResource Icon}" Text="&#xE774;"/>
+        <Control Style="{StaticResource Icon}" Tag="&#xE774;"/>
         <ComboBox x:Name="Browsers" Style="{StaticResource Dropdown}" AutomationProperties.Name="Listen to"/>
         <StackPanel VerticalAlignment="Center">
           <TextBlock Text="Listen to"/>
@@ -745,7 +760,7 @@ $xaml = @'
     </Border>
     <Border x:Name="ChatboxCard" Style="{StaticResource Card}">
       <DockPanel>
-        <TextBlock Style="{StaticResource Icon}" Text="&#xE8BD;"/>
+        <Control Style="{StaticResource Icon}" Tag="&#xE8BD;"/>
         <CheckBox x:Name="Chatbox" Style="{StaticResource Toggle}" AutomationProperties.Name="VRChat chatbox" VerticalAlignment="Center" Margin="16,0,0,0"/>
         <StackPanel>
           <TextBlock Text="VRChat chatbox"/>
@@ -756,7 +771,7 @@ $xaml = @'
     <Border Style="{StaticResource Bottom}">
       <StackPanel>
         <DockPanel>
-          <TextBlock Style="{StaticResource Icon}" Text="&#xE895;"/>
+          <Control Style="{StaticResource Icon}" Tag="&#xE895;"/>
           <CheckBox x:Name="AutoUpdate" Style="{StaticResource Toggle}" AutomationProperties.Name="Update automatically" VerticalAlignment="Center" Margin="16,0,0,0"/>
           <StackPanel>
             <TextBlock Text="Update automatically"/>
@@ -770,7 +785,7 @@ $xaml = @'
     <Border Style="{StaticResource Top}">
       <StackPanel>
         <DockPanel>
-          <TextBlock Style="{StaticResource Icon}" Text="&#xE9D9;"/>
+          <Control Style="{StaticResource Icon}" Tag="&#xE9D9;"/>
           <StackPanel>
             <TextBlock Text="GPU use"/>
             <TextBlock x:Name="GpuText" Style="{StaticResource Caption}"/>
@@ -783,7 +798,7 @@ $xaml = @'
     <Border Style="{StaticResource Bottom}">
       <StackPanel>
         <DockPanel>
-          <TextBlock Style="{StaticResource Icon}" Text="&#xE74E;"/>
+          <Control Style="{StaticResource Icon}" Tag="&#xE74E;"/>
           <StackPanel>
             <TextBlock Text="Downloaded models"/>
             <TextBlock x:Name="ModelsText" Style="{StaticResource Caption}"/>
@@ -796,7 +811,7 @@ $xaml = @'
     <TextBlock Style="{StaticResource Section}" Text="About"/>
     <Border Style="{StaticResource Top}">
       <DockPanel>
-        <TextBlock Style="{StaticResource Icon}" Text="&#xE946;" VerticalAlignment="Top" Margin="2,2,18,0"/>
+        <Control Style="{StaticResource Icon}" Tag="&#xE946;" VerticalAlignment="Top" Margin="2,2,18,0"/>
         <StackPanel>
           <TextBlock x:Name="AboutTitle" Text="Hushsub Translate"/>
           <TextBlock Style="{StaticResource Caption}" Text="Free and open source."/>
@@ -805,7 +820,7 @@ $xaml = @'
     </Border>
     <Border Style="{StaticResource Card}">
       <DockPanel>
-        <TextBlock Style="{StaticResource Icon}" Text="&#xEA18;" VerticalAlignment="Top" Margin="2,2,18,0"/>
+        <Control Style="{StaticResource Icon}" Tag="&#xEA18;" VerticalAlignment="Top" Margin="2,2,18,0"/>
         <StackPanel>
           <TextBlock Text="Privacy"/>
           <TextBlock Style="{StaticResource Caption}" Text="What happens to what you hear."/>
@@ -815,7 +830,7 @@ $xaml = @'
     </Border>
     <Border Style="{StaticResource Card}">
       <DockPanel>
-        <TextBlock Style="{StaticResource Icon}" Text="&#xE8A5;" VerticalAlignment="Top" Margin="2,2,18,0"/>
+        <Control Style="{StaticResource Icon}" Tag="&#xE8A5;" VerticalAlignment="Top" Margin="2,2,18,0"/>
         <StackPanel>
           <TextBlock Text="Terms"/>
           <TextBlock Style="{StaticResource Caption}" Text="MIT License. Each model has its own license."/>
@@ -829,7 +844,7 @@ $xaml = @'
     </Border>
     <Border Style="{StaticResource Card}">
       <DockPanel>
-        <TextBlock Style="{StaticResource Icon}" Text="&#xE9CE;"/>
+        <Control Style="{StaticResource Icon}" Tag="&#xE9CE;"/>
         <Button x:Name="HelpButton" Style="{StaticResource Standard}" DockPanel.Dock="Right" Padding="16,5,16,6" Margin="16,0,0,0" VerticalAlignment="Center" Content="Open help"/>
         <StackPanel>
           <TextBlock Text="Help"/>
@@ -839,7 +854,7 @@ $xaml = @'
     </Border>
     <Border Style="{StaticResource Bottom}">
       <DockPanel>
-        <TextBlock Style="{StaticResource Icon}" Text="&#xED15;" VerticalAlignment="Top" Margin="2,2,18,0"/>
+        <Control Style="{StaticResource Icon}" Tag="&#xED15;" VerticalAlignment="Top" Margin="2,2,18,0"/>
         <StackPanel>
           <TextBlock Text="Send feedback"/>
           <TextBlock Style="{StaticResource Caption}" Text="Opens a GitHub report with your setup filled in. Nothing is sent until you submit."/>
@@ -855,7 +870,7 @@ $xaml = @'
       <DockPanel Margin="0,12,0,0">
         <Button x:Name="HelpBack" Style="{StaticResource Link}" Padding="12,7,16,8" AutomationProperties.Name="Back to settings">
           <StackPanel Orientation="Horizontal">
-            <TextBlock Text="&#xE72B;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center" Margin="0,1,10,0"/>
+            <Control Style="{StaticResource Glyph}" Tag="&#xE72B;" FontSize="16" VerticalAlignment="Center" Margin="0,1,10,0"/>
             <TextBlock Text="Back"/>
           </StackPanel>
         </Button>
@@ -1084,6 +1099,8 @@ $win.FindName("StyleReset").Add_Click({
         [Windows.MessageBox]::Show($win, "Reset all caption style options to the default?", "Hushsub Translate", "YesNo") -ne "Yes") { return }
     foreach ($k in $styleOptions.Keys) { foreach ($r in $win.FindName($k).Children) { if ($r.Tag -eq $styleOptions[$k].Default) { $r.IsChecked = $true } } }
 })
+$moveButtons = $win.FindName("MoveButtons")  # on while captions show ($tick); the plugin moves them and removes the file
+foreach ($b in $moveButtons.Children) { if ($b -is [Windows.Controls.Button]) { $b.Add_Click({ param($s) Set-Content -LiteralPath ".captions-move" -Value $s.Tag }) } }
 $win.FindName("StyleMore").Add_Click({ param($s)  # the nine option rows stay folded away until wanted
     $open = $styleRows.Visibility -ne "Visible"
     $styleRows.Visibility = if ($open) { "Visible" } else { "Collapsed" }
@@ -1188,7 +1205,8 @@ $button.Add_Click({
         Start-Install
     }
     elseif ($script:restart -or ((Ours-Open) -and -not (Test-Path -LiteralPath ".captions-paused"))) { $script:restart = $false
-        if (Test-Path -LiteralPath ".captions-download") { Stop-Captions } elseif (Ours-Open) { Pause-Captions }  # Stop: at once (a model download pauses)
+        # Stop: at once (a model download pauses). After a failed start it closes: that console has nothing left to resume
+        if (@(Test-Path -LiteralPath ".captions-download", ".captions-failed") -contains $true) { Stop-Captions } elseif (Ours-Open) { Pause-Captions }
     }
     elseif ((Ours-Open) -and -not $script:stopping -and (Start-Key (Resolve-Browser)) -eq $script:startKey) {
         Remove-Item -LiteralPath ".captions-paused" -ErrorAction SilentlyContinue  # Start: the paused engine, at once
@@ -1313,7 +1331,6 @@ Remove-Item -LiteralPath $oldExe, (Join-Path $PSScriptRoot "Private Captions.old
 if (-not $saved -and -not (Test-Path -LiteralPath $startPath)) { Save-Shortcut (New-Object -ComObject WScript.Shell).CreateShortcut($startPath) }
 # About: what the app is built with, privacy and terms (following the settings), help, feedback
 $repo = "https://github.com/peng-win0/hushsub-translate"
-$iconFont = New-Object Windows.Media.FontFamily "Segoe Fluent Icons, Segoe MDL2 Assets"
 $codeFont = New-Object Windows.Media.FontFamily "Cascadia Mono, Consolas"
 function Add-Inlines($tb, [string]$text) {
     # README markdown in a line: **bold**, `code`, [link](https://...) or [link](a file in this folder)
@@ -1361,8 +1378,8 @@ function Fill-Table($grid, $rows, [switch]$head) {
 }
 function Add-Point($panel, $glyph, $color, $text) {
     $d = New-Object Windows.Controls.DockPanel -Property @{ Margin = "0,4,0,0" }
-    $g = New-Object Windows.Controls.TextBlock -Property @{ Text = $glyph; FontFamily = $iconFont; FontSize = 14; Margin = "0,2,10,0"; VerticalAlignment = "Top" }
-    $g.SetResourceReference([Windows.Controls.TextBlock]::ForegroundProperty, "T_$color")
+    $g = New-Object Windows.Controls.Control -Property @{ Tag = $glyph; Style = $win.Resources["Glyph"]; FontSize = 14; Margin = "0,2,10,0"; VerticalAlignment = "Top" }
+    $g.SetResourceReference([Windows.Controls.Control]::ForegroundProperty, "T_$color")
     [Windows.Controls.DockPanel]::SetDock($g, "Left")
     [void]$d.Children.Add($g)
     [void]$d.Children.Add((New-Object Windows.Controls.TextBlock -Property @{ Text = $text; TextWrapping = "Wrap"; FontSize = 13 }))
@@ -1540,6 +1557,7 @@ $tick = {
     $browserBox.IsEnabled = -not $on
     $langBox.IsEnabled = -not $on
     $live.IsEnabled = -not $on
+    $moveButtons.IsEnabled = $open -and -not $paused
     $logButton.IsEnabled = $open -or (Test-Path -LiteralPath ".captions-log") -or $logCard.Visibility -eq "Visible"
     if ($logCard.Visibility -eq "Visible") { Refresh-Log }
     $failed = $open -and (Test-Path -LiteralPath ".captions-failed")

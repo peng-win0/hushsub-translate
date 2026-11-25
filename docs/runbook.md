@@ -17,6 +17,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File bench/test_update.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File bench/test_compat.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File bench/test_exe.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File bench/test_app.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File bench/test_a11y.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File bench/test_zip.ps1
 ruff check Plugins bench
 ```

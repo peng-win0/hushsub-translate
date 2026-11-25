@@ -193,6 +193,12 @@ p.chatbox = True
 p._submit_translation("b", False, "jpn_Jpan"); p._show_live(sent[-1], "Hello th")  # a draft
 final("Hello there.")
 final("Hello there.")  # a looping segment: shown once, sent once
+p._submit_translation("c", False, "jpn_Jpan"); p._show_live(sent[-1], "Hello")  # and again, after another draft
+p._submit_translation("loop", True, "jpn_Jpan"); loop = sent[-1]  # its draft stands in below the line...
+p._submit_translation("next", True, "jpn_Jpan"); p._show_final(sent[-1], "Next.")
+p._show_final(loop, "Hello there.")  # ...and goes when the final is that same line
+assert list(p.transcriptions) == list(p.history)[-2:] == ["Hello there.", "Next."], (p.transcriptions, p.history)
+assert list(p.history)[-3] == "Switch off."
 p._submit_translation("older", True, "jpn_Jpan"); older = sent[-1]
 final("Newer.")
 p._show_final(older, "Older.")  # finished after a newer line: the chatbox keeps the newest
@@ -208,7 +214,7 @@ try:
         got.append(json.loads(rx.recv(4096)))
 except socket.timeout:
     pass
-assert [g[0] for g in got] == ["Hello there.", "Newer.", "Into the mic."], got
+assert [g[0] for g in got] == ["Hello there.", "Next.", "Newer.", "Into the mic."], got
 assert got[0][1:] == [144, 1.5, "/chatbox/input"] and set(gaps) == {1.5}, (got, gaps)
 p.chatbox = False
 rx.close()
