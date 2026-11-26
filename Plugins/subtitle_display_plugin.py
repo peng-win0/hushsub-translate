@@ -105,6 +105,16 @@ def edge_copies(edge, u):
             "Raised": [(-h, -h, light), (h, h, dark)],
             "Depressed": [(h, h, light), (-h, -h, dark)],
             "Outline": [(dx * u, dy * u, dark) for dx in (-1, 0, 1) for dy in (-1, 0, 1) if dx or dy]}.get(edge, [])
+
+
+def rounded_box(canvas, x1, y1, x2, y2, r, **kw):
+    """A box with round corners of radius r (Tk has none): a smooth polygon. Tk curves each corner from the midpoints
+    beside it, so the points sit 2r from the corners; never more than half a side."""
+    d = max(0, min(2 * r, (x2 - x1) / 2, (y2 - y1) / 2))
+    return canvas.create_polygon(x1 + d, y1, x2 - d, y1, x2, y1, x2, y1 + d, x2, y2 - d, x2, y2, x2 - d, y2, x1 + d, y2,
+                                 x1, y2, x1, y2 - d, x1, y1 + d, x1, y1, smooth=True, **kw)
+
+
 # Median translation time of recent lines, read by CaptionsApp.ps1 (Auto steps down a mode if this GPU is too slow).
 STATS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".captions-stats")
 # Where the user dragged the captions: one place for every mode, and kept by app updates (which replace the profiles).
@@ -1186,14 +1196,16 @@ class SubtitleDisplayPlugin(Plugins.Base):
                 redraw()
 
         def draw_lines(lines, hint=None):
-            # YouTube CC look: each line centered on its own bar, newest line at the bottom, all lines in one window
-            # box. Box, bars and text are separate windows, each with its own opacity (Tk has one per window).
+            # YouTube CC look: each line centered on its own bar with round corners, newest line at the bottom, all lines
+            # in one window box. Box, bars and text are separate windows, each with its own opacity (Tk has one per
+            # window).
             width = window_width
             height = self.cc_height + (self.cc_hint_h if hint else 0)  # winfo_height lags a resize until it is drawn
             caps = self.cc_small_caps
             for c in (self.box_canvas, self.canvas, self.text_canvas):
                 c.delete("cc")
             u = max(1, round(abs(self.cc_font.cget("size")) / 10 * scale))
+            r = self.cc_font.metrics("linespace") // 5  # corner radius: a fifth of a line, any size or scale
             edges = edge_copies(self.cc_edge, u)
             y, left, right, pad = height - px(4), width, 0, px(8)
             for line in reversed([Original(hint)] * bool(hint) + lines):
@@ -1216,11 +1228,11 @@ class SubtitleDisplayPlugin(Plugins.Base):
                                                             anchor=anchor, tags="cc"))
                 x1, y1, x2, y2 = self.text_canvas.bbox(*ids)
                 if self.cc_alpha > 0:
-                    self.canvas.create_rectangle(x1 - pad, y1, x2 + pad, y2, fill=self.cc_bar, outline="", tags="cc")
+                    rounded_box(self.canvas, x1 - pad, y1, x2 + pad, y2, r, fill=self.cc_bar, outline="", tags="cc")
                 left, right, y = min(left, x1), max(right, x2), y1  # bars touch, like YouTube's stacked line boxes
             if lines and self.cc_box_alpha > 0:
-                self.box_canvas.create_rectangle(left - pad - 2 * u, y - 2 * u, right + pad + 2 * u, height, fill=self.cc_box,
-                                                 outline="", tags="cc")
+                rounded_box(self.box_canvas, left - pad - 2 * u, y - 2 * u, right + pad + 2 * u, height, r + 2 * u,
+                            fill=self.cc_box, outline="", tags="cc")
 
         scale = 1.0
         try:  # sharp captions on a scaled display (125%, 150%, 200%): Windows otherwise draws them small and stretches
