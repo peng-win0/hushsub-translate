@@ -91,7 +91,13 @@ def checks(_root=None, n=0):
     pump(root, 0.3)
     texts = items(p.text_canvas)
     assert texts == ["text"], texts  # defaults: no edge copies
-    assert items(p.canvas) == ["rectangle"] and items(p.box_canvas) == [], "bar, no window box"
+    assert items(p.canvas) == ["polygon"] and items(p.box_canvas) == [], "bar, no window box"
+    bar = p.canvas.find_withtag("cc")[0]
+    xs, ys = p.canvas.coords(bar)[0::2], p.canvas.coords(bar)[1::2]
+    tx1, ty1, _, ty2 = p.text_canvas.bbox(*p.text_canvas.find_withtag("cc"))
+    assert (min(xs), min(ys), max(ys)) == (tx1 - round(8 * s), ty1, ty2), "the bar spans the line, 8 px beside it"
+    assert p.canvas.itemcget(bar, "smooth") in ("1", "true"), "the bar's corners are curves"
+    assert min(xs) < xs[0] < xs[1] < max(xs), "the bar's corners are round"
     assert abs(float(root.attributes("-alpha")) - 0.75) < 0.01
     text_win = p.text_canvas.winfo_toplevel()
     assert str(text_win.wm_attributes("-transparentcolor")) == p.text_canvas.cget("bg") == "#090909", "letter edges blend into the bar"
@@ -231,8 +237,11 @@ def checks(_root=None, n=0):
     assert len(t) in (9, 18), len(t)  # per line 8 outline copies + the text, redrawn without a new caption
     assert p.text_canvas.itemcget(t[-1], "fill") == "#FE00FE", "magenta must not be the see-through color"
     assert p.cc_font.cget("size") == 40
-    assert items(p.canvas) == [] and items(p.box_canvas) == ["rectangle"], "no bar, a window box"
-    assert p.box_canvas.itemcget(p.box_canvas.find_withtag("cc")[0], "fill") == "#0000FF"
+    assert items(p.canvas) == [] and items(p.box_canvas) == ["polygon"], "no bar, a window box"
+    box = p.box_canvas.find_withtag("cc")[0]
+    assert p.box_canvas.itemcget(box, "fill") == "#0000FF"
+    xs = p.box_canvas.coords(box)[0::2]
+    assert min(xs) < xs[0] < xs[1] < max(xs), "the window box's corners are round"
     assert p.text_canvas.cget("bg") == "#090909", "no bar color picked: still YouTube's black"
     assert abs(float(p.text_canvas.winfo_toplevel().attributes("-alpha")) - 0.5) < 0.01
     assert root.winfo_height() == p.box_canvas.winfo_toplevel().winfo_height(), "the three windows stay together"
